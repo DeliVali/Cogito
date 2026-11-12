@@ -1,0 +1,1442 @@
+/*
+ * Design 4a/4b cards, the model menu, and the 4e "Herramientas y permisos" window.
+ * Colours, gradients, radii, hard shadows and timings come from the design file
+ * (COGITO v2.dc.html, sections 4a, 4b, 4e and the 1a model menu). Loaded after styles.css;
+ * every class here is namespaced (cc-, tools-, menu, toggle, segmented) so it cannot
+ * restyle anything that file owns.
+ *
+ * UX-04: `#8b93a3` measured 2.16-3.09:1 on its backgrounds, under WCAG 2.2's 4.5:1
+ * (`lab-wt-ux2/experiments/2026-09-29-ux-audit/shots/result-real.json`), so it is now
+ * `var(--ink-faint)` (styles.css, darkened to the lightest passing value). `#6a7590`
+ * (3.3-4.1:1) is now `var(--ink-soft)`. Both were checked against every background they
+ * sit on, not only the audit's screenshots.
+ */
+
+/* Colours this file uses that styles.css has no role for. The light values are the ones
+   these rules always drew; the dark ones keep each hue on a graphite ground. Every text
+   colour below measures 4.5:1 or more in dark on the ground it sits on (WCAG 2.2 relative
+   luminance): the card heads' ink 7.2 or more, --cc-danger-ink 7.4, --cc-link-hover 9.8 on
+   --panel, --tools-done 8.5, --conn-logo-ink 5.8, --conn-error-ink 7.25, --conn-label 6.5
+   and --conn-tech 5.1 on --surface-raised, --conn-changes-ink 8.8, --conn-problem 5.9 on a
+   card. The status dots, the progress stripes, a switch that is on and its knob keep
+   their light colours: they are lit marks and read on either ground. */
+:root {
+  --cc-card: linear-gradient(#fdfeff, #eef2f8);
+  --cc-card-edge: #9aa3b5;
+  --cc-head-blue: linear-gradient(#eef4fd 0%, #d5e2f5 50%, #c6d7f0 51%, #dfe9f8 100%);
+  --cc-head-blue-edge: #8fa9d4;
+  --cc-head-red: linear-gradient(#fdf1ef 0%, #f3d0ca 50%, #eebcb3 51%, #f6d9d4 100%);
+  --cc-head-red-edge: #c98b82;
+  --cc-head-red-ink: #5a1d15;
+  --cc-head-grey: linear-gradient(#f6f8fc 0%, #e4e9f1 50%, #d8dfea 51%, #e8edf4 100%);
+  --cc-head-amber: linear-gradient(#fcf3d4 0%, #f3e2a4 50%, #eed68a 51%, #f6e6b0 100%);
+  --cc-head-amber-ink: #4a390f;
+  --cc-head-quiet: linear-gradient(#fdf8e6, #f5ebc6);
+  --cc-pill-emboss: 0 1px 0 rgba(255, 255, 255, 0.5);
+  --cc-danger: linear-gradient(#fdf1ef 0%, #f3c3bc 48%, #e79d93 52%, #f5cfc9 100%);
+  --cc-danger-edge: #a4574c;
+  --cc-danger-ink: #4a1510;
+  --cc-blue-wash: #eef4fd;
+  --cc-row: linear-gradient(#f3f6fa, #e4e9f1);
+  --cc-link-hover: #1a2f57;
+  --tools-done: #3f7d55;
+  --conn-rule: #dfe4ee;
+  --conn-logo: #dbe6f7;
+  --conn-logo-ink: #2f5aa8;
+  --conn-error-ground: #fff6f4;
+  --conn-error-edge: #e3b9b2;
+  --conn-error-ink: #7a2a20;
+  --conn-label: #8b93a3;
+  --conn-action-rule: #eef1f6;
+  --conn-kind: #e4e9f1;
+  --conn-changes: #fbf0cf;
+  --conn-changes-ink: #7a5a0c;
+  --conn-remove: linear-gradient(#fff, #f3e3e0);
+  --conn-remove-edge: #c98b82;
+  --conn-tech: #9aa3b5;
+  --conn-many: #8a5a10;
+  --conn-input: #fff;
+  --conn-problem: #a4392e;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --cc-card: linear-gradient(#323946, #29303a);
+    --cc-card-edge: #11151b;
+    --cc-head-blue: linear-gradient(#34476b 0%, #2c3d5e 50%, #283857 51%, #30425f 100%);
+    --cc-head-blue-edge: #4a6492;
+    --cc-head-red: linear-gradient(#4a2b28 0%, #3e2421 50%, #3a201e 51%, #432724 100%);
+    --cc-head-red-edge: #8c4c44;
+    --cc-head-red-ink: #ffc6be;
+    --cc-head-grey: linear-gradient(#434b5a 0%, #3a4250 50%, #353c49 51%, #3d4553 100%);
+    --cc-head-amber: linear-gradient(#4a3f1e 0%, #40361a 50%, #3a3117 51%, #443a1c 100%);
+    --cc-head-amber-ink: #ecd690;
+    --cc-head-quiet: linear-gradient(#3f3720, #362f1a);
+    /* Light type on a dark pill: a shadow above it, as --emboss does, not a white glow. */
+    --cc-pill-emboss: 0 -1px 0 rgba(0, 0, 0, 0.45);
+    --cc-danger: linear-gradient(#6a3530 0%, #5a2b27 48%, #4e2420 52%, #613029 100%);
+    --cc-danger-edge: #8c4c44;
+    --cc-danger-ink: #ffd9d3;
+    --cc-blue-wash: #26324a;
+    --cc-row: linear-gradient(#323946, #2b313c);
+    --cc-link-hover: #c2d5f3;
+    --tools-done: #93d4a8;
+    --conn-rule: #323946;
+    --conn-logo: #2f4266;
+    --conn-logo-ink: #adc6f0;
+    --conn-error-ground: #3e2321;
+    --conn-error-edge: #8c4c44;
+    --conn-error-ink: #f2a59c;
+    --conn-label: #b3bccd;
+    --conn-action-rule: #2f3641;
+    --conn-kind: #3a4250;
+    --conn-changes: #3a321a;
+    --conn-changes-ink: #ecd690;
+    --conn-remove: linear-gradient(#45302e, #3a2624);
+    --conn-remove-edge: #8c4c44;
+    --conn-tech: #9ea7b8;
+    --conn-many: #ecd690;
+    --conn-input: #1f242d;
+    --conn-problem: #f2a59c;
+  }
+}
+
+/* ---------- cards (4a, 4b) ---------- */
+
+.cc-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--cc-card);
+  border: 1px solid var(--cc-card-edge);
+  border-radius: 8px;
+  box-shadow:
+    2px 2px 0 rgba(var(--shade-rgb), 0.12),
+    inset 0 1px 0 var(--highlight);
+  overflow: hidden;
+  animation: ccIn 0.25s ease-out both;
+}
+
+/* Keyboard focus only (a click draws no ring), in the app's focus blue (styles.css
+   `--focus`): 6.0:1 or more on every background a card sits on, above UX-08's 3:1. */
+.cc-card:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.cc-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 13px;
+  border-bottom: 1px solid;
+  box-shadow: inset 0 1px 0 rgba(var(--highlight-rgb), 0.8);
+  font: 600 11.5px var(--mono);
+}
+
+.cc-card--blue .cc-head {
+  background: var(--cc-head-blue);
+  border-bottom-color: var(--cc-head-blue-edge);
+  color: var(--ink-heading);
+}
+
+.cc-card--red .cc-head {
+  background: var(--cc-head-red);
+  border-bottom-color: var(--cc-head-red-edge);
+  color: var(--cc-head-red-ink);
+}
+
+.cc-card--grey .cc-head {
+  background: var(--cc-head-grey);
+  border-bottom-color: var(--grey-border);
+  color: var(--ink);
+}
+
+.cc-card--amber .cc-head {
+  background: var(--cc-head-amber);
+  border-bottom-color: var(--amber);
+  color: var(--cc-head-amber-ink);
+}
+
+/* "Paso detenido": a quieter amber card, since nothing waits on an answer. */
+.cc-card--quiet {
+  animation: none;
+}
+
+.cc-card--quiet .cc-head {
+  background: var(--cc-head-quiet);
+}
+
+.cc-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.cc-dot {
+  width: 9px;
+  height: 9px;
+  flex: none;
+  border-radius: 50%;
+}
+
+.cc-dot--blue {
+  background: radial-gradient(circle at 35% 30%, #e4eefa, #6e93d2);
+  box-shadow: 0 0 6px rgba(110, 147, 210, 0.8);
+}
+
+.cc-dot--red {
+  background: radial-gradient(circle at 35% 30%, #fbd6d0, #d0584b);
+  box-shadow: 0 0 6px rgba(208, 88, 75, 0.7);
+}
+
+.cc-dot--grey {
+  background: radial-gradient(circle at 35% 30%, #fff, #9aa3b5);
+}
+
+.cc-dot--amber {
+  background: radial-gradient(circle at 35% 30%, #fff3c4, #c9a227);
+  box-shadow: 0 0 6px rgba(201, 162, 39, 0.8);
+}
+
+.cc-spinner {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 50%;
+  border: 1.5px solid var(--blue-border);
+  border-top-color: var(--ink-heading);
+  box-sizing: border-box;
+  animation: spin 0.8s linear infinite;
+}
+
+.cc-body {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 11px 13px 12px;
+}
+
+.cc-name-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.cc-name {
+  flex: 1;
+  font: 600 13.5px var(--sans);
+  color: var(--ink-strong);
+}
+
+.cc-size {
+  font: 11px var(--mono);
+  color: var(--ink-soft);
+}
+
+.cc-grid {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 4px 12px;
+  font: 12.5px/1.5 var(--sans);
+  color: var(--ink-soft);
+}
+
+.cc-card--blue .cc-grid {
+  grid-template-columns: 110px minmax(0, 1fr);
+}
+
+.cc-label {
+  font: 10.5px/1.9 var(--mono);
+  color: var(--ink-faint); /* UX-04: was #8b93a3, 2.75:1 */
+}
+
+.cc-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.cc-mono {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--ink-strong);
+}
+
+.cc-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+.cc-shortcuts {
+  flex: 1;
+  font: 10.5px var(--mono);
+  color: var(--ink-faint);
+}
+
+.cc-spacer {
+  flex: 1;
+}
+
+.cc-button {
+  flex: none;
+  padding: 5px 13px;
+  font: 600 11.5px var(--sans);
+  color: var(--ink);
+  background: var(--raised);
+  border: 1px solid var(--raised-edge);
+  border-radius: 999px;
+  box-shadow:
+    1px 1px 0 rgba(var(--shade-rgb), 0.16),
+    inset 0 1px 0 var(--highlight);
+  cursor: pointer;
+  transition:
+    transform 0.08s ease-out,
+    filter 0.15s;
+}
+
+.cc-button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.cc-button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.cc-button--primary {
+  padding: 5px 15px;
+  color: var(--primary-ink);
+  background: var(--primary);
+  border-color: var(--accent-edge);
+  box-shadow:
+    0 2px 4px rgba(40, 70, 130, 0.22),
+    inset 0 1px 0 rgba(var(--highlight-rgb), 0.9);
+  text-shadow: var(--cc-pill-emboss);
+}
+
+.cc-button--danger {
+  padding: 5px 15px;
+  color: var(--cc-danger-ink);
+  background: var(--cc-danger);
+  border-color: var(--cc-danger-edge);
+  box-shadow:
+    0 2px 4px rgba(140, 50, 40, 0.22),
+    inset 0 1px 0 rgba(var(--highlight-rgb), 0.9);
+  text-shadow: var(--cc-pill-emboss);
+}
+
+/* The glossy pills (4a «Instalar», 4b «No» / «Permitir en esta sesión»): brighter under
+   the pointer and darker when pressed (the design's `style-hover` and `style-active`). */
+.cc-button--primary:hover:not(:disabled),
+.cc-button--danger:hover:not(:disabled) {
+  filter: brightness(1.04);
+}
+
+.cc-button--primary:active:not(:disabled),
+.cc-button--danger:active:not(:disabled) {
+  filter: brightness(0.93);
+}
+
+/* UX-06: was 52.1x20 CSS px, under the 24px minimum height. */
+.cc-button--small {
+  padding: 5px 8px;
+  font-size: 10.5px;
+  border-radius: 4px;
+  box-shadow: none;
+}
+
+.cc-button--square {
+  padding: 5px 12px;
+  border-radius: 5px;
+  box-shadow:
+    1px 1px 0 rgba(var(--shade-rgb), 0.16),
+    inset 1px 1px 0 var(--highlight);
+}
+
+.cc-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cc-bar {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--raised-bottom);
+  box-shadow: inset 1px 1px 2px rgba(var(--shade-deep-rgb), 0.18);
+  overflow: hidden;
+}
+
+.cc-bar-fill {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: 4px;
+  background: repeating-linear-gradient(135deg, #8fb0e4 0 6px, #6e93d2 6px 12px);
+  transition: width 0.12s linear;
+}
+
+.cc-progress-text {
+  flex: none;
+  width: 110px;
+  text-align: right;
+  font: 11px var(--mono);
+  color: var(--ink-soft);
+}
+
+.cc-error,
+.cc-command {
+  background: var(--surface-alt);
+  border: 1px solid var(--edge-soft);
+  border-radius: 5px;
+  box-shadow: inset 1px 1px 2px rgba(var(--shade-deep-rgb), 0.1);
+}
+
+.cc-error {
+  padding: 7px 10px;
+  font: 12px/1.6 var(--mono);
+  color: var(--ink-strong);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.cc-heading {
+  font: 600 13px var(--sans);
+  color: var(--ink-strong);
+}
+
+.cc-command {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 6px 6px 10px;
+}
+
+.cc-command-text {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font: 11.5px/1.5 var(--mono);
+  color: var(--ink-strong);
+  user-select: text;
+}
+
+.cc-note {
+  font: 12px/1.5 var(--sans);
+  color: var(--ink-soft);
+}
+
+.cc-card--quiet .cc-note {
+  font-size: 12.5px;
+}
+
+.cc-official {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.cc-link {
+  user-select: text;
+}
+
+.cc-install-first {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 10px;
+  background: var(--cc-blue-wash);
+  border: 1px solid var(--blue-border);
+  border-radius: 5px;
+}
+
+.cc-install-first-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.cc-install-first-label {
+  flex: 1;
+  font: 10px var(--mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.cc-install-first .cc-size {
+  color: var(--ink-soft);
+}
+
+.cc-install-first-name {
+  font: 600 12.5px var(--sans);
+  color: var(--ink-heading);
+}
+
+.cc-install-first-enables {
+  font: 12px/1.45 var(--sans);
+  color: var(--ink-soft);
+}
+
+/* The finished-row look (4a «Instaló», 4b «Permitiste», «Falta … aviso visto»). */
+.cc-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--edge-soft);
+  border-radius: 6px;
+  background: var(--cc-row);
+  font: 11px var(--mono);
+  color: var(--grey);
+  animation: ccSwap 0.25s ease-out both;
+}
+
+.cc-row-arrow {
+  font-size: 8px;
+}
+
+.cc-row-verb {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.cc-row-object {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cc-row-meta {
+  flex: none;
+}
+
+.cc-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cc-resolution {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  animation: ccSwap 0.25s ease-out both;
+}
+
+.cc-saved {
+  font: 10.5px var(--mono);
+  color: var(--ink-faint);
+}
+
+@keyframes ccIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes ccSwap {
+  0% {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---------- "Herramientas y permisos" (4e) ---------- */
+
+.tools-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: var(--overlay);
+}
+
+.tools-overlay.is-closing {
+  opacity: 0;
+  transition: opacity 0.14s ease-in;
+}
+
+.tools-overlay.is-closing .tools-window {
+  transform: scale(0.96);
+  transition: transform 0.14s ease-in;
+}
+
+.tools-window {
+  width: min(1120px, 100%);
+  height: min(580px, 100%);
+  display: flex;
+  flex-direction: column;
+  background: var(--window);
+  border: 1px solid var(--window-edge);
+  border-radius: 9px 9px 7px 7px;
+  box-shadow:
+    var(--shadow-window),
+    inset 1px 1px 0 rgba(var(--highlight-rgb), 0.8);
+  overflow: hidden;
+  outline: none;
+  animation: toolsWinOpen 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+
+@keyframes toolsWinOpen {
+  0% {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.tools-titlebar {
+  height: 24px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+  background: var(--stripes);
+  border-bottom: 1px solid var(--titlebar-edge);
+}
+
+.tools-titlebar .chrome--close {
+  margin-left: -6px;
+}
+
+.tools-title {
+  flex: 1;
+  text-align: center;
+  font: 600 12px var(--sans);
+  color: var(--ink-label);
+  text-shadow: var(--emboss);
+}
+
+.tools-titlebar-end {
+  width: 12px;
+  flex: none;
+}
+
+.tools-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.tools-tabs {
+  width: 220px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 8px;
+  background: var(--sidebar);
+  border-right: 1px solid var(--bar);
+}
+
+.tools-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  font: 600 12px var(--sans);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.tools-tab:hover {
+  filter: brightness(1.03);
+}
+
+.tools-tab.is-active {
+  background: var(--active);
+  border-color: var(--raised-edge);
+}
+
+/* UX-04: --ink-soft on the active tab's #aebfdd background measures 3.94:1, under 4.5:1.
+   On the inactive sidebar it measures 5.26:1 or more, re-measured after this fix. */
+.tools-tab.is-active .tools-tab-count {
+  color: var(--ink);
+}
+
+.tools-tab-label {
+  flex: 1;
+}
+
+.tools-tab-count {
+  font: 10.5px var(--mono);
+  color: var(--ink-soft);
+}
+
+.tools-panel {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  background: var(--panel);
+  padding: 22px 28px;
+}
+
+.tools-tab-content {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  animation: ccSwap 0.2s ease-out both;
+}
+
+.tools-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.tools-heading-title {
+  font: 600 15px var(--sans);
+  color: var(--ink-strong);
+}
+
+.tools-heading-note {
+  font: 12.5px var(--sans);
+  color: var(--ink-soft);
+}
+
+.tools-list {
+  display: flex;
+  flex-direction: column;
+  background: var(--list-ground);
+  border: 1px solid var(--bar);
+  border-radius: 7px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.tools-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--rule-soft);
+}
+
+/* A tab with nothing to list says so in one sentence. */
+.tools-empty {
+  padding: 4px 0;
+  font: 12px/1.45 var(--sans);
+  color: var(--ink-soft);
+}
+
+/* A rule above every program, level and skill row, the first included (as the design
+   draws it). Only the component row has none. */
+.tools-row--component:first-child {
+  border-top: 0;
+}
+
+/* Habilidades: each row rises in when the tab opens (4e: `rise .25s`), not on later
+   redraws of the same tab. */
+.tools-tab-content.is-entering .tools-row--skill {
+  animation: rise 0.25s ease-out both;
+}
+
+.tools-row--component,
+.tools-row--level,
+.tools-row--skill {
+  padding: 12px 14px;
+}
+
+/* A skill's description can run a paragraph: two lines here, the whole text on hover. */
+.tools-row--skill .tools-row-description {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.tools-row--skill .tools-row-meta {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.tools-row--program {
+  padding: 9px 14px;
+}
+
+.tools-row-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  transition: opacity 0.15s;
+}
+
+.tools-row-name {
+  font: 600 13px var(--sans);
+  color: var(--ink-strong);
+}
+
+.tools-row-description {
+  font: 12px/1.45 var(--sans);
+  color: var(--ink-soft);
+}
+
+.tools-row-meta {
+  font: 10.5px var(--mono);
+  color: var(--ink-faint);
+}
+
+.tools-row-source {
+  width: 200px;
+  flex: none;
+  font: 10.5px var(--mono);
+  color: var(--ink-faint);
+}
+
+.tools-row-size {
+  width: 60px;
+  flex: none;
+  text-align: right;
+  font: 11px var(--mono);
+  color: var(--ink-soft);
+}
+
+.tools-row.is-off .tools-row-text {
+  opacity: 0.5;
+}
+
+/* UX-06: was 36x20 CSS px, under the 24px minimum height (width already clears it). */
+.toggle {
+  position: relative;
+  flex: none;
+  width: 36px;
+  height: 24px;
+  padding: 0;
+  border-radius: 12px;
+  background: var(--track);
+  border: 1px solid var(--glyph);
+  box-shadow: inset 1px 1px 3px rgba(var(--shade-deep-rgb), 0.25);
+  cursor: pointer;
+  transition: background 0.18s;
+}
+
+.toggle.is-on {
+  background: linear-gradient(#8fb0e4, #6e93d2);
+  border-color: var(--accent-edge);
+}
+
+.toggle-knob {
+  position: absolute;
+  top: 3px; /* centred in the 24px-tall track (22px inner height, minus the 16px knob) */
+  left: 1px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff, #dfe5ef);
+  box-shadow: 0 1px 2px rgba(var(--shade-deep-rgb), 0.35);
+  transition: transform 0.18s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+
+.toggle.is-on .toggle-knob {
+  transform: translateX(16px);
+}
+
+.tools-program-name {
+  width: 150px;
+  flex: none;
+}
+
+/* UX-04: at 0.55 opacity #26304a measured 3.28:1 on this row's background, under 4.5:1.
+   0.7 is the most it can fade and still pass. */
+.tools-row--program.is-missing .tools-program-name {
+  opacity: 0.7;
+}
+
+.tools-program-version {
+  width: 90px;
+  flex: none;
+  font: 11.5px var(--mono);
+  color: var(--ink-soft);
+}
+
+.tools-program-path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 11px var(--mono);
+  color: var(--ink-faint);
+}
+
+.tools-program-action {
+  width: 120px;
+  flex: none;
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* UX-06: was 185.2x16.8 CSS px («Abrir consola del proveedor ↗»), and as short for
+   «Cómo instalarlo», under the 24px minimum height. Padding with a matching negative margin
+   grows the click target and leaves the text and layout alone, as in
+   `.chrome`/`.rewind-link`/`.model--menu`. */
+.link-button {
+  padding: 6px 0;
+  margin: -6px 0;
+  background: none;
+  border: 0;
+  font: 600 11.5px var(--sans);
+  color: var(--focus);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.link-button:hover {
+  color: var(--cc-link-hover);
+}
+
+.tools-program-help:not(:empty) {
+  padding: 10px 14px 12px;
+  border-top: 1px solid var(--rule-soft);
+}
+
+.tools-level-number {
+  width: 24px;
+  height: 24px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--raised);
+  border: 1px solid var(--raised-edge);
+  font: 600 11px var(--mono);
+  color: var(--ink);
+}
+
+.segmented {
+  flex: none;
+  display: flex;
+  border: 1px solid var(--raised-edge);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.segmented-option {
+  padding: 4px 11px;
+  white-space: nowrap;
+  font: 600 11px var(--sans);
+  color: var(--ink-soft);
+  background: var(--raised);
+  border: 0;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.segmented-option.is-active {
+  color: var(--ink-deep);
+  background: var(--active);
+}
+
+/* Diseño: one setting per row, its name on the left and its control on the right. Like the
+   component row, the first has no rule above it. */
+.tools-row--setting:first-child {
+  border-top: 0;
+}
+
+.segmented-option + .segmented-option {
+  border-left: 1px solid var(--raised-edge);
+}
+
+.tools-reactivated {
+  font: 11px var(--mono);
+  color: var(--tools-done);
+  animation: ccSwap 0.2s ease-out both;
+}
+
+/* The main window is 800 px wide by default (560 at its smallest), so the design's 1120 px
+   window folds its fixed columns instead of scrolling sideways. */
+@media (max-width: 900px) {
+  .tools-tabs {
+    width: 188px;
+  }
+
+  .tools-panel {
+    padding: 16px 18px;
+  }
+
+  .tools-row-source {
+    width: 176px;
+  }
+
+  .tools-program-name {
+    width: 116px;
+  }
+
+  .tools-program-version {
+    width: 56px;
+  }
+
+  .tools-program-action {
+    width: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .tools-row-source {
+    display: none;
+  }
+
+  .tools-row--level {
+    flex-wrap: wrap;
+  }
+}
+
+/* ---------- Conexiones (design 4e → Conexiones, 4f) ---------- */
+
+.conn-heading {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.conn-heading-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.conn-heading-note {
+  font: 12.5px var(--sans);
+  color: var(--ink-soft);
+}
+
+.conn-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--edge-soft);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  overflow: hidden;
+}
+
+.conn-card + .conn-card {
+  border-top: 1px solid var(--conn-rule);
+}
+
+.conn-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  transition: opacity 0.15s;
+}
+
+.conn-card.is-off .conn-row > :not(.toggle) {
+  opacity: 0.55;
+}
+
+.conn-logo {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--conn-logo);
+  border: 1px solid rgba(var(--shade-deep-rgb), 0.18);
+  font: 700 13px var(--sans);
+  color: var(--conn-logo-ink);
+}
+
+.conn-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.conn-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.conn-name {
+  font: 600 13.5px var(--sans);
+  color: var(--ink-deep);
+}
+
+.conn-status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font: 600 11px var(--sans);
+}
+
+.conn-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.conn-does {
+  font: 12px var(--sans);
+  color: var(--ink-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conn-details-toggle {
+  flex: none;
+  font: 600 11.5px var(--sans);
+}
+
+/* The real error a server gave when it did not start (4g «No conecta»: the log as is). */
+.conn-error {
+  margin: 0 14px 11px 60px;
+  padding: 7px 10px;
+  max-height: 140px;
+  overflow: auto;
+  background: var(--conn-error-ground);
+  border: 1px solid var(--conn-error-edge);
+  border-radius: 5px;
+  font: 11px/1.5 var(--mono);
+  color: var(--conn-error-ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.conn-more {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  padding: 2px 14px 14px 60px;
+  animation: metaSwap 0.2s ease-out both;
+}
+
+.conn-section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+
+.conn-label {
+  font: 10px var(--mono);
+  letter-spacing: 0.12em;
+  color: var(--conn-label);
+}
+
+.conn-actions {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  max-height: 220px;
+  overflow: auto;
+  border: 1px solid var(--edge-soft);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.conn-action {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+}
+
+.conn-action + .conn-action {
+  border-top: 1px solid var(--conn-action-rule);
+}
+
+.conn-action-name {
+  flex: 1;
+  min-width: 0;
+  font: 12px var(--sans);
+  color: var(--ink-strong);
+  overflow-wrap: anywhere;
+}
+
+.conn-kind {
+  flex: none;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font: 600 10px var(--sans);
+  color: var(--ink-soft);
+  background: var(--conn-kind);
+}
+
+.conn-kind.is-changes {
+  color: var(--conn-changes-ink);
+  background: var(--conn-changes);
+}
+
+.cc-button.conn-remove {
+  color: var(--conn-error-ink);
+  background: var(--conn-remove);
+  border-color: var(--conn-remove-edge);
+  box-shadow: none;
+}
+
+.cc-button.conn-remove.is-confirming {
+  color: var(--cc-danger-ink);
+  background: var(--cc-danger);
+  border-color: var(--cc-danger-edge);
+}
+
+.conn-tech {
+  font: 10px/1.5 var(--mono);
+  color: var(--conn-tech);
+  overflow-wrap: anywhere;
+}
+
+.conn-many {
+  margin-top: 10px;
+  font: 12px var(--sans);
+  color: var(--conn-many);
+}
+
+/* 4f: the form, in the tab (Manual), and the result for the one just added. */
+.conn-add,
+.conn-added {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 14px;
+  background: var(--cc-card);
+  border: 1px solid var(--cc-card-edge);
+  border-radius: 8px;
+  box-shadow:
+    2px 2px 0 rgba(var(--shade-rgb), 0.12),
+    inset 0 1px 0 var(--highlight);
+  animation: metaSwap 0.2s ease-out both;
+}
+
+.conn-form-title,
+.conn-added-title {
+  font: 600 13.5px var(--sans);
+  color: var(--ink-deep);
+}
+
+.conn-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.conn-field-label {
+  font: 600 11.5px var(--sans);
+  color: var(--ink-soft);
+}
+
+.conn-input {
+  padding: 6px 9px;
+  font: 12.5px var(--mono);
+  color: var(--ink-deep);
+  background: var(--conn-input);
+  border: 1px solid var(--raised-edge);
+  border-radius: 5px;
+  box-shadow: inset 1px 1px 2px rgba(var(--shade-deep-rgb), 0.12);
+}
+
+.conn-input:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 0;
+}
+
+.conn-field-note {
+  font: 11px var(--sans);
+  color: var(--ink-muted);
+}
+
+.conn-problem {
+  min-height: 0;
+  font: 12px var(--sans);
+  color: var(--conn-problem);
+}
+
+.conn-problem:empty {
+  display: none;
+}
+
+.conn-form-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.conn-spacer {
+  flex: 1;
+}
+
+.conn-added-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.conn-added-check {
+  margin-left: auto;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #5fae78;
+  color: #fff;
+  font: 700 12px var(--sans);
+}
+
+.conn-added-note {
+  font: 12px var(--sans);
+  color: var(--ink-soft);
+}
+
+.conn-added.is-failed .conn-error {
+  margin: 0;
+}
+
+/* What a server printed while it starts, or before it failed: its last lines. */
+.conn-log {
+  margin: 0 14px 11px 60px;
+  padding: 7px 10px;
+  max-height: 140px;
+  overflow: auto;
+  border: 1px solid var(--conn-rule);
+  border-radius: 5px;
+  font: 11px/1.5 var(--mono);
+  color: var(--ink-muted);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.conn-added .conn-log {
+  margin: 0;
+}
+
+.conn-import-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.conn-import-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--conn-rule);
+  border-radius: 6px;
+}
+
+.conn-import-row.is-taken {
+  opacity: 0.6;
+}
+
+.conn-import-tick {
+  margin-top: 3px;
+}
+
+.conn-needs {
+  display: block;
+  margin: 0 14px 11px 60px;
+  font: 11px var(--sans);
+  color: var(--conn-many);
+}
+
+/* ---------- the bar's chip and its menu (design 1a) ---------- */
+
+.chip.connections-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font: 11px var(--mono);
+}
+
+.connections-chip-dot {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+}
+
+.connections-chip-caret {
+  font-size: 8px;
+  color: var(--ink-muted);
+}
+
+.connections-menu {
+  width: 290px;
+}
+
+.connections-menu-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  border-top: 1px solid var(--divider);
+}
+
+.connections-menu-row .conn-logo {
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  font-size: 10px;
+}
+
+.connections-menu-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.connections-menu-row.is-off .connections-menu-text {
+  opacity: 0.55;
+}
+
+.connections-menu-name {
+  font: 600 12.5px var(--sans);
+  color: var(--ink-strong);
+}
+
+.connections-menu-status {
+  font: 11px var(--sans);
+}
+
+.connections-menu .menu-item {
+  padding-left: 12px;
+  border-top: 1px solid var(--divider);
+}

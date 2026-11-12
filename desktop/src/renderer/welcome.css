@@ -1,0 +1,714 @@
+/* Design 1d-1e, «Bienvenida» (welcome.js): the full-window screen under the title bar, and
+   the same 1e card for «Conectar otro servicio…». Values are the canvas' own
+   (`COGITO v2.dc.html`, 1d and 1e: stage, 460px card, fields, dropdowns, test states, error
+   card, footer; keyframes `rise`, `menuIn`, `errIn`, `spin`, `shake1`/`shake2`). One
+   exception, as in the main window (styles.css, UX-04): the canvas' faint grey #8b93a3 is
+   drawn in `--ink-faint`, which meets WCAG 2.2's 4.5:1 where #8b93a3 does not.
+   What the canvas does not draw (the model list after an API test, another OpenAI-compatible
+   service's base URL, Cogito Motoris' tabs, the real error log) reuses the same
+   parts: label, field, dropdown, note. */
+
+/* The colours this screen draws that the base palette (styles.css) has no role for. The
+   light values are the canvas'; the dark ones keep each part's hue on graphite. The card has
+   no ground of its own, so its text sits on the stage: every text colour below clears 4.5:1
+   on the stage's lighter end (#2b313c) and on whatever it sits in. */
+:root {
+  --welcome-stage: linear-gradient(175deg, #eef2f8, #d8e0ed);
+  --welcome-hello: #26262c;
+  --welcome-ok-edge: #7fa88c;
+  --welcome-ok: #2c6843;
+  --welcome-tab-pressed: linear-gradient(#dde3ee, #eef2f8);
+  --welcome-primary: linear-gradient(#f1f6fe 0%, #cddcf3 48%, #b3c9ea 52%, #d6e4f6 100%);
+  --welcome-primary-ink: #1d2c4c;
+  --welcome-primary-edge: #6c7fa6;
+  --welcome-primary-shadow: 0 2px 4px rgba(45, 70, 120, 0.25);
+  --welcome-menu-rgb: 240, 245, 252;
+  --welcome-check: #243252;
+  --welcome-testing: #3c4d70;
+  --welcome-spinner-track: #c3d3ec;
+  --welcome-error-ground: linear-gradient(#fdf4f2, #f7e2de);
+  --welcome-error-ink: #6b3a33;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --welcome-stage: linear-gradient(175deg, var(--window), var(--transcript));
+    --welcome-hello: var(--ink-strong); /* 11.6:1 on the stage */
+    --welcome-ok-edge: var(--green-line-no);
+    --welcome-ok: var(--green); /* 7.6:1 on the stage */
+    --welcome-tab-pressed: linear-gradient(var(--raised-bottom), var(--raised-top));
+    --welcome-primary: var(--primary);
+    --welcome-primary-ink: var(--primary-ink); /* 5.36:1 */
+    --welcome-primary-edge: var(--accent-edge);
+    --welcome-primary-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+    --welcome-menu-rgb: 35, 41, 51;
+    --welcome-check: var(--ink-strong);
+    --welcome-testing: var(--blue); /* 7.5:1 on the stage */
+    --welcome-spinner-track: #3a4d70;
+    --welcome-error-ground: linear-gradient(#472926, var(--red-ground)); /* --red 6.6:1 */
+    --welcome-error-ink: var(--red-strong); /* 8.7:1 */
+  }
+}
+
+@keyframes shake1 {
+  0%,
+  100% {
+    transform: none;
+  }
+  20% {
+    transform: translateX(-6px);
+  }
+  40% {
+    transform: translateX(5px);
+  }
+  60% {
+    transform: translateX(-3px);
+  }
+  80% {
+    transform: translateX(2px);
+  }
+}
+
+@keyframes shake2 {
+  0%,
+  100% {
+    transform: none;
+  }
+  20% {
+    transform: translateX(-6px);
+  }
+  40% {
+    transform: translateX(5px);
+  }
+  60% {
+    transform: translateX(-3px);
+  }
+  80% {
+    transform: translateX(2px);
+  }
+}
+
+.welcome-overlay {
+  position: fixed;
+  top: 24px; /* the title bar stays visible above */
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 55;
+  display: flex;
+  flex-direction: column;
+}
+
+.welcome-overlay.is-closing {
+  opacity: 0;
+  transition: opacity var(--close-ms) ease-in;
+}
+
+/* 1d/1e: `flex:1; align-items:center; justify-content:center; background:linear-gradient(175deg,#eef2f8,#d8e0ed)`. */
+.welcome-stage {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--welcome-stage);
+}
+
+.welcome-card {
+  width: 460px;
+  max-width: calc(100% - 32px);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  margin: auto 0;
+}
+
+/* 1d: `align-items:center; gap:14px; padding:26px 28px 18px`. */
+.welcome-card--name {
+  align-items: center;
+  gap: 14px;
+  padding: 26px 28px 18px;
+}
+
+/* 1e: `gap:12px; padding:22px 28px 18px`. The card hangs from a fixed distance below the
+   title bar instead of being centred: every field, test result and error card changes its
+   height, and a centred card moved up and down with each (QA 2026-10-13). `auto` below
+   takes the free room, so a tall card still scrolls inside the stage. */
+.welcome-card--connect {
+  gap: 12px;
+  padding: 22px 28px 18px;
+  margin: clamp(0px, 8vh, 72px) 0 auto;
+}
+
+/* ---------- 1d: the orb, the greeting, the name ---------- */
+
+.welcome-orb {
+  display: inline-flex;
+  width: 124px;
+  height: 124px;
+  animation: rise 0.45s ease-out 0.2s both;
+}
+
+.welcome-hello {
+  font: 600 23px var(--sans);
+  letter-spacing: -0.01em;
+  color: var(--welcome-hello);
+  animation: rise 0.45s ease-out 0.32s both;
+}
+
+.welcome-lead {
+  font: 13px/1.6 var(--sans);
+  color: var(--ink-soft);
+  text-align: center;
+  text-wrap: pretty;
+  animation: rise 0.45s ease-out 0.4s both;
+}
+
+.welcome-block--name {
+  align-self: stretch;
+  animation: rise 0.45s ease-out 0.48s both;
+}
+
+.welcome-footer--name {
+  align-self: stretch;
+  margin-top: 4px;
+  animation: rise 0.45s ease-out 0.56s both;
+}
+
+/* ---------- the parts both steps share ---------- */
+
+.welcome-block {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.welcome-label {
+  font: 600 10.5px var(--mono);
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+}
+
+/* A text field: `padding:8px 11px; background:#f7f9fc; border:1px solid #8a94a8;
+   border-radius:6px; box-shadow:inset 1px 1px 2px rgba(30,45,80,.18)`. Border and shadow
+   follow the test's state (`fieldBorder`, `fieldShadow`); a failure shakes it (`shake`). */
+.welcome-field {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 8px 11px;
+  background: var(--surface-alt);
+  border: 1px solid var(--raised-edge);
+  border-radius: 6px;
+  box-shadow: inset 1px 1px 2px rgba(var(--shade-deep-rgb), 0.18);
+  font: 14px var(--sans);
+  color: var(--ink);
+  caret-color: var(--focus);
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+
+.welcome-field--mono,
+.welcome-field--key {
+  font: 12.5px var(--mono);
+}
+
+.welcome-field[data-state='ok'] {
+  border-color: var(--welcome-ok-edge);
+}
+
+.welcome-field[data-state='fail'] {
+  border-color: #c8574b;
+  box-shadow:
+    0 0 0 3px rgba(200, 87, 75, 0.15),
+    inset 1px 1px 2px rgba(var(--shade-deep-rgb), 0.12);
+}
+
+.welcome-field.is-shaking-1 {
+  animation: shake1 0.42s ease-out;
+}
+
+.welcome-field.is-shaking-2 {
+  animation: shake2 0.42s ease-out;
+}
+
+/* A text field matches :focus-visible on a click too, so it draws no ring: its caret is the
+   focus indicator (styles.css, "focus"). Text inputs only. Cogito Motoris' «CARPETA» and
+   «CONFIGURACIÓN» are buttons drawn as fields and keep the global keyboard ring. */
+input.welcome-field:focus-visible {
+  outline: none;
+}
+
+/* A folder or file is picked by clicking the field, which is a button styled as a field. */
+.welcome-field--file {
+  flex: 1;
+  cursor: pointer;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.welcome-field--file.is-placeholder {
+  color: var(--ink-faint);
+}
+
+.welcome-row {
+  display: flex;
+  gap: 8px;
+}
+
+.welcome-row > .welcome-field {
+  flex: 1;
+}
+
+/* The raised square: «Probar» (`padding:0 13px; font:600 11px`), «Atrás» and
+   «Omitir» (`padding:6px 14px; font:600 11.5px; color:#4c566e`), «Reintentar» (`padding:4px
+   12px`). Pressed: `translate(1px,1px)` into the inset shadow. */
+.welcome-square {
+  flex: none;
+  display: flex;
+  align-items: center;
+  font: 600 11px var(--sans);
+  color: var(--ink);
+  white-space: nowrap;
+  background: var(--raised);
+  border: 1px solid var(--raised-edge);
+  border-radius: 6px;
+  box-shadow:
+    2px 2px 0 rgba(var(--shade-rgb), 0.2),
+    inset 1px 1px 0 var(--highlight);
+  cursor: pointer;
+  transition: transform 0.08s ease-out;
+}
+
+.welcome-square--row {
+  padding: 0 13px;
+}
+
+.welcome-square--footer {
+  padding: 6px 14px;
+  font-size: 11.5px;
+  color: var(--ink-soft);
+}
+
+.welcome-square--small {
+  padding: 4px 12px;
+  box-shadow:
+    2px 2px 0 rgba(var(--shade-rgb), 0.18),
+    inset 1px 1px 0 var(--highlight);
+}
+
+.welcome-square:active:not(:disabled) {
+  transform: translate(1px, 1px);
+  box-shadow: inset 1px 1px 2px rgba(var(--shade-deep-rgb), 0.3);
+}
+
+.welcome-square:disabled {
+  cursor: default;
+}
+
+/* Cogito Motoris' two tabs: raised squares, the open one pressed in. */
+.welcome-tabs {
+  display: flex;
+  gap: 6px;
+}
+
+.welcome-tab[aria-selected='true'] {
+  transform: translate(1px, 1px);
+  background: var(--welcome-tab-pressed);
+  box-shadow: inset 1px 1px 2px rgba(var(--shade-deep-rgb), 0.3);
+}
+
+/* The blue pill: «Continuar» (`padding:6px 22px`), «Empezar» (`opacity:{goOp}`: .5 until the
+   test passed). */
+.welcome-primary {
+  padding: 6px 22px;
+  font: 600 11.5px var(--sans);
+  color: var(--welcome-primary-ink);
+  background: var(--welcome-primary);
+  border: 1px solid var(--welcome-primary-edge);
+  border-radius: 999px;
+  box-shadow:
+    var(--welcome-primary-shadow),
+    inset 0 1px 0 rgba(var(--highlight-rgb), 0.95);
+  cursor: pointer;
+  transition:
+    transform 0.08s ease-out,
+    filter 0.15s;
+}
+
+.welcome-primary:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.welcome-primary:active:not(:disabled) {
+  transform: translateY(1px);
+  filter: brightness(0.94);
+}
+
+.welcome-primary--go[data-ready='false'] {
+  opacity: 0.5;
+}
+
+.welcome-primary:disabled {
+  cursor: progress;
+}
+
+.welcome-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 2px;
+}
+
+.welcome-step {
+  font: 10.5px var(--mono);
+  color: var(--ink-faint);
+}
+
+.welcome-spacer {
+  flex: 1;
+}
+
+/* ---------- 1e: the heading, the dropdowns, the test ---------- */
+
+.welcome-heading {
+  font: 600 14px var(--sans);
+  color: var(--ink-strong);
+}
+
+.welcome-select-wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+/* The dropdown's face: `padding:7px 11px`, the raised gradient, `box-shadow:2px 2px 0
+   rgba(45,55,78,.18),inset 1px 1px 0 #fff`; pressed into the inset shadow. */
+.welcome-select {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 7px 11px;
+  text-align: left;
+  background: var(--raised);
+  border: 1px solid var(--raised-edge);
+  border-radius: 6px;
+  box-shadow:
+    2px 2px 0 rgba(var(--shade-rgb), 0.18),
+    inset 1px 1px 0 var(--highlight);
+  cursor: pointer;
+  transition: transform 0.08s ease-out;
+}
+
+.welcome-select:active:not(:disabled) {
+  transform: translate(1px, 1px);
+  box-shadow: inset 1px 1px 2px rgba(var(--shade-deep-rgb), 0.3);
+}
+
+.welcome-select-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 12px var(--mono);
+  color: var(--ink);
+}
+
+/* «SERVICIO»'s own face is bolder: `font:600 12px`. */
+.welcome-select--service .welcome-select-name {
+  font-weight: 600;
+}
+
+.welcome-select.is-placeholder .welcome-select-name {
+  color: var(--ink-faint);
+}
+
+.welcome-select-sub {
+  font: 10.5px var(--mono);
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+.welcome-caret {
+  font-size: 8px;
+  color: var(--ink-muted);
+}
+
+/* The open list: `position:absolute; top:calc(100% + 3px)`, the frosted menu with its hard
+   shadow, `transform-origin:top`, `menuIn .17s cubic-bezier(.2,.9,.3,1.2)`. It closes with
+   the shrink + fade every menu uses (140 ms). A provider's list can be long, so it scrolls. */
+.welcome-menu {
+  position: absolute;
+  top: calc(100% + 3px);
+  left: 0;
+  right: 0;
+  z-index: 5;
+  max-height: 264px;
+  overflow-y: auto;
+  padding: 4px 0;
+  background: rgba(var(--welcome-menu-rgb), 0.92);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--edge-strong);
+  border-radius: 6px;
+  box-shadow:
+    3px 3px 0 rgba(var(--shade-rgb), 0.2),
+    0 12px 28px rgba(var(--shade-deep-rgb), 0.2);
+  transform-origin: top;
+  animation: menuIn 0.17s var(--ease-open) backwards;
+  transition:
+    opacity var(--close-ms) ease-in,
+    transform var(--close-ms) ease-in;
+}
+
+/* Where there is more room above the trigger than below (welcome.js `placeMenu`). */
+.welcome-menu.opens-up {
+  top: auto;
+  bottom: calc(100% + 3px);
+  transform-origin: bottom;
+}
+
+.welcome-menu.is-closing {
+  opacity: 0;
+  transform: scale(0.94);
+  pointer-events: none;
+}
+
+.welcome-option {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 7px 12px;
+  text-align: left;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.welcome-option:hover,
+.welcome-option:focus-visible {
+  background: var(--selection);
+}
+
+.welcome-option:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.welcome-option-check {
+  width: 11px;
+  flex: none;
+  font: 700 10px var(--sans);
+  color: var(--welcome-check);
+}
+
+.welcome-option-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 600 11.5px var(--mono);
+  color: var(--ink);
+}
+
+/* A model's row is not bold: `font:12px`. */
+.welcome-option-name.is-mono {
+  font: 12px var(--mono);
+}
+
+.welcome-option-sub {
+  font: 10px var(--mono);
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+/* What the chosen service asks for, rising in (`rise .25s ease-out both`). */
+.welcome-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.welcome-card--connect:not(.is-quiet) .welcome-section {
+  animation: rise 0.25s ease-out backwards;
+}
+
+/* «MODELO»: `opacity:.45; pointer-events:none` until the test passed, `transition:opacity .2s`. */
+.welcome-model {
+  transition: opacity 0.2s;
+}
+
+/* `backwards`, not `both`: a fill kept after the rise leaves a stacking context behind, and
+   the open list was drawn under the footer's «Conectar» (QA 2026-10-11). */
+.welcome-model.is-arriving {
+  animation: rise 0.25s ease-out backwards;
+}
+
+/* A block whose list is open stays over what follows it, whatever stacking context that
+   makes for itself (the footer's dimmed «Conectar» has its opacity). */
+.welcome-section:has(.welcome-menu),
+.welcome-block:has(.welcome-menu) {
+  position: relative;
+  z-index: 6;
+}
+
+.welcome-model[data-ready='false'] {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/* `Probando…`: the spinner and its line, `font:10.5px mono; color:#3c4d70`. */
+.welcome-testing {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: 10.5px var(--mono);
+  color: var(--welcome-testing);
+}
+
+.welcome-spinner {
+  width: 9px;
+  height: 9px;
+  flex: none;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 2px solid var(--welcome-spinner-track);
+  border-top-color: var(--focus);
+  animation: spin 0.7s linear infinite;
+}
+
+.welcome-ok {
+  font: 10.5px var(--mono);
+  /* The canvas' #3f7d55, darkened for contrast: see «a green that reads» below. */
+  color: var(--welcome-ok);
+  animation: rise 0.25s ease-out both;
+}
+
+/* The red card: `padding:9px 11px; background:linear-gradient(#fdf4f2,#f7e2de); border:1px
+   solid #d49a92; errIn .3s cubic-bezier(.2,.9,.3,1.2)`. */
+.welcome-error {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 9px 11px;
+  background: var(--welcome-error-ground);
+  border: 1px solid var(--red-border);
+  border-radius: 6px;
+  box-shadow: inset 0 1px 0 var(--highlight);
+  animation: errIn 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+
+.welcome-error-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font: 600 12px var(--sans);
+  color: var(--red);
+}
+
+.welcome-error-dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: #c8574b;
+  box-shadow: 0 0 6px rgba(200, 87, 75, 0.7);
+}
+
+.welcome-error-desc {
+  font: 12px/1.5 var(--sans);
+  color: var(--welcome-error-ink);
+  text-wrap: pretty;
+}
+
+/* «Detalle técnico»: opens the log below it. Not stretched across the card. */
+.welcome-error-detail-toggle {
+  align-self: flex-start;
+}
+
+/* Not in the canvas' 1e card: the real log under it (README, «Errores de servicio»). */
+.welcome-error-log {
+  max-height: 136px;
+  overflow: auto;
+  font: 10.5px/1.5 var(--mono);
+  color: var(--welcome-error-ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.welcome-error-actions {
+  display: flex;
+  gap: 7px;
+}
+
+.welcome-link {
+  padding: 4px;
+  font: 600 11px var(--sans);
+  color: var(--focus);
+  text-decoration: underline;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.welcome-ok.is-settled,
+.welcome-error.is-settled {
+  animation: none;
+}
+
+/* Under the name field when «Continuar» is pressed with it empty. */
+.welcome-hint {
+  font: 12px var(--sans);
+  color: var(--red);
+}
+
+/* «Se guarda … en este equipo»: `font:10.5px/1.5 mono`. */
+.welcome-note,
+.welcome-facts {
+  font: 10.5px/1.5 var(--mono);
+  color: var(--ink-faint);
+}
+
+.welcome-facts {
+  color: var(--ink-soft);
+}
+
+/* ---------- accessibility: the live region, and a green that reads ---------- */
+
+/* Visually hidden: a test's progress and outcome, for screen readers. */
+.welcome-live {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* «✓ Conectado…»: the canvas' #3f7d55 measures 3.7-4.4:1 on the stage's gradient, under
+   WCAG 2.2's 4.5:1 for 10.5 px text. #2c6843 (above) reaches 4.99:1 on #d8e0ed, the
+   gradient's darkest end. */
+
+/* A model the core could not serve, above «SERVICIO». */
+.welcome-unserved.is-settled {
+  animation: none;
+}
+
+.welcome-square[aria-disabled='true'],
+.welcome-primary[aria-disabled='true'] {
+  cursor: progress;
+}

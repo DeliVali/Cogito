@@ -1,0 +1,371 @@
+/* `hidden` always hides. Without this, an author rule such as
+   `.toast-actions { display: flex }` beats the UA's `[hidden] { display: none }` and the
+   element stays on screen while the code thinks it is gone. */
+[hidden] {
+  display: none !important;
+}
+
+/* The app's notification, as in design 2d («Notificación de COGITO»). It reuses the
+   thread's card: white ground, #9aa3b5 edge, pill buttons, and a glossy strip in the
+   notice's state colour (red for an error, amber for a permission, green for a finished
+   task, blue otherwise). Values come from the design canvas.
+   The window is the card, so its corners are square and the desktop draws its shadow. */
+
+/* toast.html loads no styles.css, so the palette roles this card uses are declared here
+   with the same light and dark values (styles.css, `:root` and its dark block). Keep the two
+   in step. The `--toast-*` names are this card's own strips. Every text colour below clears
+   4.5:1 in dark on the ground it sits on (figures beside each). */
+:root {
+  --panel: #eef2f8;
+  --ink: #2b3350;
+  --ink-soft: #4c566e;
+  --ink-strong: #26304a;
+  --ink-heading: #1d2c4c;
+  --ink-label: #39415a;
+  --edge-strong: #6c7688;
+  --active: #aebfdd;
+  --raised: linear-gradient(#f6f8fc, #d3dae6);
+  --raised-edge: #8a94a8;
+  --primary: linear-gradient(#f1f6fe 0%, #c3d5f2 48%, #9fbbe8 52%, #cfdef5 100%);
+  --primary-ink: #14264a;
+  --accent-edge: #4f6fa8;
+  --focus: #2c4a80;
+  --highlight: #fff;
+  --highlight-rgb: 255, 255, 255;
+  --shade-rgb: 45, 55, 78;
+  --amber: #c9a227;
+  --amber-ink: #5e4a15;
+  --green: #1f5a36;
+  --green-border: #8fbf9d;
+  --red-border: #d49a92;
+
+  --toast-card: linear-gradient(#fdfeff, #eef2f8);
+  --toast-edge: #9aa3b5;
+  --toast-head: linear-gradient(#eef4fd 0%, #d5e2f5 50%, #c6d7f0 51%, #dfe9f8 100%);
+  --toast-head-edge: #8fa9d4;
+  --toast-close: linear-gradient(135deg, #f4f7fb, #b9c3d4);
+  --toast-error-head: linear-gradient(#fdf1ef 0%, #f3d0ca 50%, #eebcb3 51%, #f6d9d4 100%);
+  --toast-error-edge: #c98b82;
+  --toast-error-ink: #5a1d15;
+  --toast-error-when: #8b5a52;
+  --toast-permission-head: linear-gradient(#fcf3d4 0%, #f3e2a4 50%, #eed68a 51%, #f6e6b0 100%);
+  --toast-permission-ink: #4a390f;
+  --toast-permission-when: #5e4a15;
+  --toast-done-head: linear-gradient(#eef7f0, #dcefe2);
+  --toast-done-when: #2f6b45;
+  --toast-primary-shadow: 0 2px 4px rgba(40, 70, 130, 0.22);
+  --toast-primary-emboss: 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --panel: #232933;
+    --ink: #e4e9f2;
+    --ink-soft: #c3cbda;
+    --ink-strong: #eef2f8;
+    --ink-heading: #e9eef8;
+    --ink-label: #ccd3e1;
+    --edge-strong: #161a21;
+    --active: #33456a;
+    --raised: linear-gradient(#434b5a, #313844);
+    --raised-edge: #11151b;
+    --primary: linear-gradient(#4b6697 0%, #3a5482 48%, #304a76 52%, #3e5a8c 100%);
+    --primary-ink: #f4f7fc;
+    --accent-edge: #6283bf;
+    --focus: #93b3e6;
+    --highlight: #4b5364;
+    --highlight-rgb: 110, 122, 145;
+    --shade-rgb: 0, 0, 0;
+    --amber: #c9a227;
+    --amber-ink: #ecd690;
+    --green: #93d4a8;
+    --green-border: #3f6f50;
+    --red-border: #8c4c44;
+
+    --toast-card: linear-gradient(#2d3440, #232933);
+    --toast-edge: #4a5260;
+    --toast-head: linear-gradient(#3f5276 0%, #34466a 50%, #2e3f61 51%, #374a6e 100%); /* --ink-heading 6.7:1, --ink-soft 4.8 */
+    --toast-head-edge: #4a6492;
+    --toast-close: linear-gradient(135deg, #4b5364, #343b48); /* --ink-label 5.1:1 */
+    --toast-error-head: linear-gradient(#55302c 0%, #4a2926 50%, #432522 51%, #4e2c28 100%);
+    --toast-error-edge: var(--red-border);
+    --toast-error-ink: #ffc6be; /* 7.6:1 */
+    --toast-error-when: #f2a59c; /* 5.8:1 */
+    --toast-permission-head: linear-gradient(#4a3f1f 0%, #3f3519 50%, #3a3017 51%, #43391c 100%);
+    --toast-permission-ink: var(--amber-ink); /* 7.2:1 */
+    --toast-permission-when: #d9c27a; /* 5.9:1 */
+    --toast-done-head: linear-gradient(#22402e, #1b3325);
+    --toast-done-when: #7fc495; /* 5.6:1 */
+    --toast-primary-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+    --toast-primary-emboss: 0 -1px 0 rgba(0, 0, 0, 0.35);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  height: 100%;
+  background: var(--panel);
+}
+
+body {
+  margin: 0;
+  height: 100%;
+  color: var(--ink);
+  font: 13px 'Open Sans', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  overflow: hidden;
+}
+
+.toast-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--toast-card);
+  border: 1px solid var(--toast-edge);
+  box-shadow: inset 0 1px 0 var(--highlight);
+  overflow: hidden;
+  animation: toastIn 0.25s ease-out both;
+}
+
+@keyframes toastIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---------- the strip ---------- */
+
+.toast-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px 7px 13px;
+  background: var(--toast-head);
+  border-bottom: 1px solid var(--toast-head-edge);
+  box-shadow: inset 0 1px 0 rgba(var(--highlight-rgb), 0.8);
+  font: 600 11.5px 'IBM Plex Mono', ui-monospace, monospace;
+  color: var(--ink-heading);
+}
+
+.toast-dot {
+  width: 9px;
+  height: 9px;
+  flex: none;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #e4eefa, #6e93d2);
+  box-shadow: 0 0 6px rgba(110, 147, 210, 0.8);
+}
+
+.toast-app {
+  flex: 1;
+  min-width: 0;
+}
+
+.toast-when {
+  flex: none;
+  font-weight: 400;
+  color: var(--ink-soft);
+}
+
+/* ✕: the title bar's OS 9 box (12px box and 8px glyph in the design). */
+.toast-close {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--toast-close);
+  border: 1px solid var(--edge-strong);
+  box-shadow: inset 1px 1px 0 var(--highlight);
+  font: 700 8px/1 'Open Sans', system-ui, sans-serif;
+  color: var(--ink-label);
+  cursor: pointer;
+}
+
+.toast-close:active {
+  background: var(--active);
+}
+
+body[data-kind='error'] .toast-head {
+  background: var(--toast-error-head);
+  border-bottom-color: var(--toast-error-edge);
+  color: var(--toast-error-ink);
+}
+
+body[data-kind='error'] .toast-dot {
+  background: radial-gradient(circle at 35% 30%, #fbd6d0, #d0584b);
+  box-shadow: 0 0 6px rgba(208, 88, 75, 0.7);
+}
+
+body[data-kind='error'] .toast-when {
+  color: var(--toast-error-when);
+}
+
+body[data-kind='permission'] .toast-head {
+  background: var(--toast-permission-head);
+  border-bottom-color: var(--amber);
+  color: var(--toast-permission-ink);
+}
+
+body[data-kind='permission'] .toast-dot {
+  background: radial-gradient(circle at 35% 30%, #fff3c4, #c9a227);
+  box-shadow: 0 0 6px rgba(201, 162, 39, 0.8);
+}
+
+body[data-kind='permission'] .toast-when {
+  color: var(--toast-permission-when);
+}
+
+/* A finished task: the design's green (1j's «Permitiste» pill). */
+body[data-kind='done'] .toast-head {
+  background: var(--toast-done-head);
+  border-bottom-color: var(--green-border);
+  color: var(--green);
+}
+
+body[data-kind='done'] .toast-dot {
+  background: radial-gradient(circle at 35% 30%, #bfe6c9, #3f9d5a);
+  box-shadow: 0 0 6px rgba(63, 157, 90, 0.6);
+}
+
+body[data-kind='done'] .toast-when {
+  color: var(--toast-done-when);
+}
+
+/* ---------- message and buttons ---------- */
+
+.toast-row {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+}
+
+.toast-row.is-stacked {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 8px;
+}
+
+.toast-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  cursor: pointer;
+}
+
+.toast-row.is-stacked .toast-main {
+  flex: none;
+}
+
+.toast-title {
+  font: 600 12.5px 'Open Sans', system-ui, sans-serif;
+  color: var(--ink-strong);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.toast-body {
+  font: 12px 'Open Sans', system-ui, sans-serif;
+  color: var(--ink-soft);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+/* With the buttons stacked below, title and body get one line each. */
+.toast-row.is-stacked .toast-title,
+.toast-row.is-stacked .toast-body {
+  -webkit-line-clamp: 1;
+}
+
+.toast-actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* The card's plain pill (2d's «Ver»). */
+.toast-button {
+  flex: none;
+  padding: 5px 13px;
+  font: 600 11.5px 'Open Sans', system-ui, sans-serif;
+  color: var(--ink);
+  white-space: nowrap;
+  background: var(--raised);
+  border: 1px solid var(--raised-edge);
+  border-radius: 999px;
+  box-shadow:
+    1px 1px 0 rgba(var(--shade-rgb), 0.16),
+    inset 0 1px 0 var(--highlight);
+  cursor: pointer;
+  transition:
+    transform 0.08s ease-out,
+    filter 0.15s;
+}
+
+.toast-button:active {
+  transform: translateY(1px);
+}
+
+/* The primary button: the card's blue pill, brighter on hover, darker when pressed. */
+.toast-button--primary {
+  padding: 5px 15px;
+  color: var(--primary-ink);
+  background: var(--primary);
+  border-color: var(--accent-edge);
+  box-shadow:
+    var(--toast-primary-shadow),
+    inset 0 1px 0 rgba(var(--highlight-rgb), 0.9);
+  text-shadow: var(--toast-primary-emboss);
+}
+
+.toast-button--primary:hover {
+  filter: brightness(1.04);
+}
+
+.toast-button--primary:active {
+  filter: brightness(0.93);
+}
+
+/* Focus ring for the keyboard only; a click draws none. */
+.toast-button:focus-visible,
+.toast-close:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast-card {
+    animation: none;
+  }
+
+  .toast-button {
+    transition: none;
+  }
+}

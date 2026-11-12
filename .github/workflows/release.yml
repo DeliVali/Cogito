@@ -1,0 +1,345 @@
+# On a v* tag: build the installers, sign the update manifest, publish the GitHub
+# release, and republish COGITO's signed APT repository on GitHub Pages.
+#
+# Started by hand (workflow_dispatch) it is a dry run: it assembles the Python core,
+# builds and checks every installer, and publishes nothing. `check`, `release`, `apt`
+# and `pages` are skipped, since the `release` environment admits only v* tags.
+#
+# Windows is built on windows-latest: its NSIS installer, and core-check.js running the
+# packaged core there (serve starts, answers, and stops through its own /shutdown).
+#
+# The Python core each installer ships is assembled once per target by the `core` job,
+# on one Linux runner, from inputs pinned by SHA-256 (desktop/packaging/bundle-core.py,
+# core-bundle.json). Each build job then runs its packaged core on its own OS
+# (desktop/packaging/core-check.js) before anything is uploaded.
+#
+# One-time setup (keys, secrets, Pages) is in the maintainers' release notes. Both signing keys are
+# secrets of the protected `release` environment, not repository secrets, so only jobs
+# that declare that environment (after its protection rules pass) can read them:
+#   COGITO_UPDATE_SIGNING_KEY  Ed25519 private key (PKCS#8 PEM) for cogito-update.json
+#   COGITO_APT_SIGNING_KEY     OpenPGP private key (ASCII-armored, ed25519) for the APT repository
+#
+# Every action is pinned to a full commit SHA, with its release tag in the comment beside
+# it. A tag can be moved; a commit cannot.
+#
+# Nothing is published until the component catalog passes its validator (so a release never
+# ships an unpinned download), every artifact is built, and the app's own verifier has
+# checked the manifest against the public key pinned in the app.
+
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  catalog:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: The component catalog is complete -- every download pinned, every declaration valid
+        run: |
+          python -m pip install .
+          python -m cogito.setup.catalog
+
+  version:
+    needs: catalog
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: The tag, package.json, the release notes, pyproject.toml and the core name one version
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          # A dry run has no tag: the app's own version stands in for it.
+          [ "$GITHUB_EVENT_NAME" = push ] || version=$(node -p "require('./desktop/package.json').version")
+          test "$(node -p "require('./desktop/package.json').version")" = "$version"
+          test "$(node -p "require('./desktop/packaging/release-notes.json').version")" = "$version"
+          test "$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')" = "$version"
+          test "$(python3 -c 'import ast; t = ast.parse(open("core/cogito/__init__.py").read()); print(next(n.value.value for n in t.body if isinstance(n, ast.Assign) and n.targets[0].id == "__version__"))')" = "$version"
+
+  check:
+    needs: version
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: release
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      - name: The update signing key is the one the app pins
+        env:
+          COGITO_UPDATE_SIGNING_KEY: ${{ secrets.COGITO_UPDATE_SIGNING_KEY }}
+        run: node desktop/packaging/update-manifest.js check-key
+      - name: The APT public key is committed and belongs to the APT signing key
+        env:
+          COGITO_APT_SIGNING_KEY: ${{ secrets.COGITO_APT_SIGNING_KEY }}
+        run: |
+          public=desktop/packaging/apt/cogito-archive-keyring.asc
+          if [ ! -s "$public" ]; then
+            echo "::error::$public is missing; generate the APT signing key first"
+            exit 1
+          fi
+          export GNUPGHOME="$(mktemp -d)"
+          printf '%s\n' "$COGITO_APT_SIGNING_KEY" | gpg --batch --import
+          secret=$(gpg --with-colons --list-secret-keys | awk -F: '/^fpr:/ { print $10; exit }')
+          committed=$(gpg --with-colons --show-keys "$public" | awk -F: '/^fpr:/ { print $10; exit }')
+          test -n "$secret" && test "$secret" = "$committed"
+
+  # The Python core for each target, from pinned inputs, on one Linux runner: uv installs
+  # each platform's wheels with --python-platform, so no target needs its own OS here.
+  # No environment and no secrets.
+  core:
+    needs: version
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        target: [linux-x64, mac-arm64, mac-x64, win-x64]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      # The version and checksum equal desktop/packaging/core-bundle.json's "uv"; bundle-core.py
+      # refuses any other.
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: '0.11.25'
+          checksum: '1db18b5e76fa645a7f3865773139bdec8e2d46adbdbb35e7410b34fa8015ccd2'
+          enable-cache: false
+      - name: Assemble the core for ${{ matrix.target }} from pinned inputs
+        run: python3 desktop/packaging/bundle-core.py "${{ matrix.target }}"
+      - name: Keep its file modes (a zipped artifact drops the executable bit)
+        run: tar -C desktop/build/core -cf "core-${{ matrix.target }}.tar" "${{ matrix.target }}"
+      # Not zipped, so the artifact is named after the file: core-<target>.tar.
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          path: core-${{ matrix.target }}.tar
+          archive: false
+          if-no-files-found: error
+
+  build:
+    needs: core
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: --linux
+            core: linux
+          - os: macos-latest
+            target: --mac
+            core: mac
+          - os: windows-latest
+            target: --win
+            core: win
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: desktop
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - run: npm ci
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: core-${{ matrix.core }}-*
+          path: desktop/build/core-tars
+          merge-multiple: true
+      - name: Unpack this platform's core(s) where electron-builder.yml takes them
+        run: |
+          mkdir -p build/core
+          for tar in build/core-tars/*.tar; do tar -xf "$tar" -C build/core; done
+      - name: The APT public key goes into the .deb
+        if: runner.os == 'Linux'
+        run: |
+          public=packaging/apt/cogito-archive-keyring.asc
+          if [ ! -s "$public" ] && [ "$GITHUB_EVENT_NAME" != push ]; then
+            # A dry run before the APT key exists: a throwaway key made here lets the .deb
+            # and its checks run. It is never published; a tag run still needs the real one.
+            echo "::warning::$public is missing; this dry run builds the .deb with a throwaway key"
+            export GNUPGHOME="$(mktemp -d)"
+            gpg --batch --passphrase '' --quick-gen-key "COGITO dry run" ed25519 sign never
+            gpg --armor --export > "$public"
+          fi
+          gpg --dearmor --output packaging/apt/cogito-archive-keyring.gpg "$public"
+      - name: Build, without publishing (signing and upload happen once every installer is built)
+        run: npx electron-builder ${{ matrix.target }} --publish never
+        env:
+          # macOS ships ad-hoc signed (packaging/after-pack.js) until there is a Developer ID.
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: The .deb's postrm runs the purge body (fpm 1.17 never loads --deb-after-purge)
+        if: runner.os == 'Linux'
+        run: |
+          deb=$(ls dist/cogito_*_amd64.deb)
+          work=$(mktemp -d)
+          dpkg-deb -R "$deb" "$work"
+          python3 packaging/linux/inject-purge.py "$work/DEBIAN/postrm" packaging/linux/after-purge.sh
+          dpkg-deb --root-owner-group -b "$work" "$deb"
+      - name: Each packaged core is the bundle, starts on this OS, answers, and writes nothing into the app
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          [ "$GITHUB_EVENT_NAME" = push ] || version=$(node -p "require('./package.json').version")
+          check() { node packaging/core-check.js --resources "$1" --bundle "build/core/$2/bundle.json" --version "$version"; }
+          case "$RUNNER_OS" in
+            Linux)
+              check dist/linux-unpacked/resources linux-x64 ;;
+            macOS)
+              check dist/mac-arm64/COGITO.app/Contents/Resources mac-arm64
+              # The x64 app's core runs under Rosetta 2 on this arm64 runner.
+              check dist/mac/COGITO.app/Contents/Resources mac-x64
+              for app in dist/mac-arm64/COGITO.app dist/mac/COGITO.app; do codesign --verify --deep --strict "$app"; done
+              for zip in dist/*-mac.zip; do
+                unpacked=$(mktemp -d)
+                ditto -x -k "$zip" "$unpacked"
+                codesign --verify --deep --strict "$unpacked/COGITO.app"
+              done ;;
+            Windows)
+              check dist/win-unpacked/resources win-x64 ;;
+          esac
+      - name: On Windows the agent's shell is Git Bash, the guard answers over TCP, and nothing outlives the core
+        if: runner.os == 'Windows'
+        run: dist/win-unpacked/resources/core/python/python.exe -I -B packaging/windows-smoke.py
+        env:
+          PYTHONPATH: ''
+      - name: The .deb's scripts are POSIX sh, run one body on install and upgrade, and clean up on purge
+        if: runner.os == 'Linux'
+        run: |
+          set -x  # each check in the log, so a failure names itself
+          deb=$(ls dist/cogito_*_amd64.deb)
+          test "$(dpkg-deb --field "$deb" Package)" = cogito
+          dpkg-deb --control "$deb" control
+          # Code only: the scripts' own comments explain why `[[` must not appear.
+          ! grep -nE '^[^#]*\[\[' control/postinst control/postrm
+          dash -n control/postinst && dash -n control/postrm
+          test "$(grep -c "update-alternatives --install '/usr/bin/cogito'" control/postinst)" -ge 2
+          test "$(grep -c "/opt/COGITO/resources/apt/configure-apt-source.sh" control/postinst)" -ge 2
+          grep -q "^after_upgrade" control/postinst
+          grep -q "cogito.sources" control/postrm
+          # Listed once into a file: under pipefail, `grep -q` closing the pipe early makes
+          # dpkg-deb's tar fail with "write error" on a package that is fine.
+          dpkg-deb --contents "$deb" > contents.txt
+          grep -q "resources/apt/cogito-archive-keyring.gpg" contents.txt
+          grep -Eq '^-rwxr-xr-x .* \./opt/COGITO/resources/core/python/bin/python3\.12$' contents.txt
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dist-${{ runner.os }}
+          if-no-files-found: error
+          path: |
+            desktop/dist/*.AppImage
+            desktop/dist/*.deb
+            desktop/dist/*.dmg
+            desktop/dist/*.zip
+            desktop/dist/*.exe
+            desktop/dist/*.blockmap
+            desktop/dist/latest*.yml
+
+  release:
+    needs: [check, build]
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: dist-*
+          path: dist
+          merge-multiple: true
+      - name: Build, sign and verify cogito-update.json
+        env:
+          COGITO_UPDATE_SIGNING_KEY: ${{ secrets.COGITO_UPDATE_SIGNING_KEY }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          node desktop/packaging/update-manifest.js build --version "$version" \
+            --notes desktop/packaging/release-notes.json --out manifest \
+            --asset "darwin/arm64=dist/COGITO-$version-arm64-mac.zip" \
+            --asset "darwin/x64=dist/COGITO-$version-x64-mac.zip" \
+            --asset "linux/x64=dist/COGITO-$version-x86_64.AppImage" \
+            --asset "win32/x64=dist/COGITO-Setup-$version.exe"
+          node desktop/packaging/update-manifest.js sign --manifest manifest/cogito-update.json
+          node desktop/packaging/update-manifest.js verify --dir manifest
+      - name: Release body from the release notes
+        run: |
+          node -e '
+            const notes = require("./desktop/packaging/release-notes.json");
+            const list = (title, items) => items.length ? `### ${title}\n\n${items.map((i) => `- ${i}`).join("\n")}\n\n` : "";
+            process.stdout.write((notes.security ? "**Actualización de seguridad.**\n\n" : "") +
+              list("Herramientas nuevas", notes.tools) + list("Mejoras", notes.improvements));
+          ' > body.md
+      - name: Publish the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --verify-tag \
+            --title "COGITO ${GITHUB_REF_NAME#v}" --notes-file body.md \
+            dist/* manifest/cogito-update.json manifest/cogito-update.json.sig manifest/release-notes.json
+
+  apt:
+    needs: release
+    runs-on: ubuntu-latest
+    environment: release
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist-Linux
+          path: dist
+      - name: apt-ftparchive
+        run: command -v apt-ftparchive || { sudo apt-get update && sudo apt-get install -y --no-install-recommends apt-utils; }
+      - name: Build and sign the repository
+        env:
+          COGITO_APT_SIGNING_KEY: ${{ secrets.COGITO_APT_SIGNING_KEY }}
+        run: |
+          export GNUPGHOME="$(mktemp -d)"
+          printf '%s\n' "$COGITO_APT_SIGNING_KEY" | gpg --batch --import
+          fingerprint=$(gpg --with-colons --list-secret-keys | awk -F: '/^fpr:/ { print $10; exit }')
+          sh desktop/packaging/apt/build-apt-repo.sh dist/cogito_*_amd64.deb site/apt "$fingerprint" amd64
+          gpg --dearmor --output keyring.gpg desktop/packaging/apt/cogito-archive-keyring.asc
+          gpgv --keyring "$PWD/keyring.gpg" site/apt/dists/stable/InRelease
+          cp desktop/packaging/apt/cogito-archive-keyring.asc site/apt/
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: site
+
+  # A separate job: deploy-pages needs the `github-pages` environment and a job has only
+  # one, so the signing key stays in `release` and is never reachable from here.
+  pages:
+    needs: apt
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

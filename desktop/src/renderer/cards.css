@@ -1,0 +1,966 @@
+/* Cards and dialogs in the thread and the tools window: the rewind dialog (1k), the error
+   and service-error cards (1j) and the Modelo tab (4e). Split from
+   styles.css so each surface's rules live together. Values are the design canvas's. */
+
+/* This file's own colours, where no shared variable in styles.css has the same light value:
+   the amber, rose and red cards and the diff's two inks. The light values are the canvas';
+   the dark ones keep each hue on a graphite ground, every text 5:1 or more on its ground. */
+:root {
+  --card-amber-ground: #fffdf5;
+  --card-amber-title: linear-gradient(#fcf3d4 0%, #f3e2a4 50%, #eed68a 51%, #f6e6b0 100%);
+  --card-amber-title-ink: #4a390f;
+  --card-rose: linear-gradient(#fdf1ef 0%, #f3c3bc 48%, #e79d93 52%, #f5cfc9 100%);
+  --card-rose-ink: #4a1510;
+  --card-rose-edge: #a4574c;
+  --card-rose-split: rgba(164, 87, 76, 0.5);
+  --card-rose-shadow-rgb: 140, 50, 40;
+  --card-rose-text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
+  --card-working-ground: #f3f6fa;
+  --card-spinner-track: #c3d3ec;
+  --card-red-ground: #fffafa;
+  --card-red-edge: #c98f87;
+  --card-red-title: linear-gradient(#fbe9e6 0%, #f3cfc9 50%, #eebdb5 51%, #f6d9d4 100%);
+  --card-red-title-top: rgba(255, 255, 255, 0.8);
+  --card-red-title-ink: #6b231b;
+  --card-red-body: #4c3a38;
+  --card-red-ink: #7a2a21;
+  --card-red-soft: #a4473b;
+  --card-red-faint: #8b5a52;
+  --card-red-code: #b03a2e;
+  --card-red-hover: rgba(201, 143, 135, 0.16);
+  --card-red-shadow-rgb: 90, 40, 35;
+  --card-log-edge: #e0c4bf;
+  --card-drain: #ecd3cf;
+  --card-danger-hover: #f3d9d5;
+  --card-service: linear-gradient(#fffdfd, #f6eeed);
+  --card-diff-header: linear-gradient(#f3f6fa, #e4e9f1);
+  --card-diff-current: #2c5f94;
+  --card-remove-ink: #1f4f7a;
+  --card-remove-ground: #dde9f7;
+  --card-remove-no: #7f9fc0;
+  --card-add-no: #b88a84;
+  --card-menu: rgba(240, 245, 252, 0.95);
+  --card-blue-pill: linear-gradient(#f1f6fe, #dde8f7);
+  --card-blue-detail: #3c5a8a;
+  --card-blue-button: linear-gradient(#f1f6fe 0%, #cddcf3 48%, #b3c9ea 52%, #d6e4f6 100%);
+  --card-blue-button-edge: #6c7fa6;
+  --card-blue-button-top: rgba(255, 255, 255, 0.95);
+  --card-blue-shadow-rgb: 45, 70, 120;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --card-amber-ground: #2e2a1e;
+    --card-amber-title: linear-gradient(#4a4128 0%, #3f3720 50%, #3a321a 51%, #433a22 100%);
+    --card-amber-title-ink: #ecd690;
+    --card-rose: linear-gradient(#7a3b33 0%, #67302a 48%, #5a2822 52%, #6c342d 100%);
+    --card-rose-ink: #ffd9d3;
+    --card-rose-edge: #2a1210;
+    --card-rose-split: rgba(20, 8, 6, 0.6);
+    --card-rose-shadow-rgb: 0, 0, 0;
+    --card-rose-text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.4);
+    --card-working-ground: #2d3440;
+    --card-spinner-track: #3e4f6e;
+    --card-red-ground: #2f2222;
+    --card-red-edge: #8c4c44;
+    --card-red-title: linear-gradient(#4e2d29 0%, #432522 50%, #3e2120 51%, #472a26 100%);
+    --card-red-title-top: rgba(255, 198, 190, 0.12);
+    --card-red-title-ink: #ffc6be;
+    --card-red-body: #e6cfcb;
+    --card-red-ink: #f2a59c;
+    --card-red-soft: #f0a096;
+    --card-red-faint: #d9aaa3;
+    --card-red-code: #ff9d91;
+    --card-red-hover: rgba(242, 165, 156, 0.14);
+    --card-red-shadow-rgb: 0, 0, 0;
+    --card-log-edge: #5a3a36;
+    --card-drain: #4a2f2c;
+    --card-danger-hover: #4a2724;
+    --card-service: linear-gradient(#2f2626, #292121);
+    --card-diff-header: linear-gradient(#343b48, #2c323d);
+    --card-diff-current: #9cc2ec;
+    --card-remove-ink: #b9d4f2;
+    --card-remove-ground: #22344d;
+    --card-remove-no: #86a6c8;
+    --card-add-no: #c99790;
+    --card-menu: rgba(35, 41, 51, 0.95);
+    --card-blue-pill: linear-gradient(#34476a, #2a3a58);
+    --card-blue-detail: #c0d3f2;
+    --card-blue-button: linear-gradient(#4b6697 0%, #3a5482 48%, #304a76 52%, #3e5a8c 100%);
+    --card-blue-button-edge: #1a2640;
+    --card-blue-button-top: rgba(173, 198, 240, 0.3);
+    --card-blue-shadow-rgb: 0, 0, 0;
+  }
+}
+
+/* The canvas' keyframes that styles.css does not already have, with the canvas' names and
+   values (`COGITO v2.dc.html`, its <style>): the cards' entrance, a swapped line, a window
+   opening. The surfaces in cards.css, components.css and projects.css use them. */
+@keyframes errIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes metaSwap {
+  0% {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes winOpen {
+  0% {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---------- «Volver a un punto» (design 1k). Every value is the canvas'. ---------- */
+
+/* The confirm: an amber card, 78% of the column, at its right. The title is its strip; the
+   body and the buttons carry the card's inner padding (10px 12px 11px, 9px apart). */
+.rewind-dialog {
+  align-self: flex-end;
+  width: 78%;
+  display: flex;
+  flex-direction: column;
+  background: var(--card-amber-ground);
+  border: 1px solid var(--amber);
+  border-radius: 7px;
+  box-shadow: 2px 2px 0 rgba(var(--shade-rgb), 0.1);
+  overflow: hidden;
+  animation: errIn 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+
+.rewind-dialog:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.rewind-dialog-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  background: var(--card-amber-title);
+  border-bottom: 1px solid var(--amber);
+  font: 600 11.5px var(--mono);
+  color: var(--card-amber-title-ink);
+}
+
+.rewind-dialog-body {
+  padding: 10px 12px 0;
+  font: 12.5px/1.55 var(--sans);
+  color: var(--ink-soft);
+  text-wrap: pretty;
+  white-space: pre-wrap;
+}
+
+.rewind-dialog-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 9px 12px 11px;
+}
+
+/* «Cancelar» / «Dejar como está»: the raised square, a little brighter under the pointer,
+   pressed down and in. */
+.rewind-dialog-buttons > button:not(.is-primary),
+.rewind-choice--leave {
+  flex: none;
+  padding: 4px 12px;
+  font: 600 11px var(--sans);
+  color: var(--ink);
+  white-space: nowrap;
+  background: var(--raised);
+  border: 1px solid var(--raised-edge);
+  border-radius: 5px;
+  box-shadow:
+    1px 1px 0 rgba(var(--shade-rgb), 0.18),
+    inset 1px 1px 0 var(--highlight);
+  cursor: pointer;
+  transition:
+    transform 0.08s ease-out,
+    filter 0.15s;
+}
+
+/* The confirm's «Cancelar» brightens under the pointer; the conflict's «Dejar como está»
+   does not, as in the canvas. */
+.rewind-dialog-buttons > button:not(.is-primary):not(.rewind-choice--leave):hover:not(:disabled) {
+  filter: brightness(1.04);
+}
+
+.rewind-dialog-buttons > button:not(.is-primary):active:not(:disabled),
+.rewind-choice--leave:active {
+  transform: translate(1px, 1px);
+}
+
+/* «Volver aquí» (and «Volver del todo» when it stands alone): the rose pill. */
+.rewind-dialog-buttons > button.is-primary,
+.rewind-split-main,
+.rewind-split-toggle {
+  flex: none;
+  display: flex;
+  align-items: center;
+  padding: 5px 15px;
+  font: 600 11.5px var(--sans);
+  color: var(--card-rose-ink);
+  white-space: nowrap;
+  background: var(--card-rose);
+  border: 1px solid var(--card-rose-edge);
+  border-radius: 999px;
+  box-shadow:
+    0 2px 4px rgba(var(--card-rose-shadow-rgb), 0.22),
+    inset 0 1px 0 rgba(var(--highlight-rgb), 0.9);
+  text-shadow: var(--card-rose-text-shadow);
+  cursor: pointer;
+  transition:
+    transform 0.08s ease-out,
+    filter 0.15s;
+}
+
+.rewind-dialog-buttons > button.is-primary:hover:not(:disabled),
+.rewind-split-main:hover,
+.rewind-split-toggle:hover {
+  filter: brightness(1.04);
+}
+
+.rewind-dialog-buttons > button.is-primary:active:not(:disabled) {
+  transform: translateY(1px);
+  filter: brightness(0.93);
+}
+
+.rewind-split-main:active,
+.rewind-split-toggle:active {
+  filter: brightness(0.93);
+}
+
+.rewind-dialog-buttons > button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* While the rewind runs, the card is the canvas' «Volviendo a este punto…» pill, with its
+   spinner, at the column's right. */
+.rewind-dialog.is-working {
+  width: auto;
+  background: none;
+  border: 0;
+  box-shadow: none;
+  overflow: visible;
+  animation: none;
+}
+
+.rewind-dialog.is-working .rewind-dialog-title,
+.rewind-dialog.is-working .rewind-dialog-body,
+.rewind-dialog.is-working .rewind-dialog-buttons > button:not(.is-primary) {
+  display: none;
+}
+
+.rewind-dialog.is-working .rewind-dialog-buttons {
+  padding: 0;
+}
+
+.rewind-dialog.is-working .rewind-dialog-buttons > button.is-primary {
+  gap: 8px;
+  padding: 5px 12px 5px 9px;
+  font: 11px var(--mono);
+  color: var(--ink-soft);
+  background: var(--card-working-ground);
+  border: 1px solid var(--edge-soft);
+  box-shadow: none;
+  text-shadow: none;
+  opacity: 1;
+  animation: fadeIn 0.18s ease-out both;
+}
+
+.rewind-dialog.is-working .rewind-dialog-buttons > button.is-primary::before {
+  content: '';
+  width: 10px;
+  height: 10px;
+  flex: none;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 2px solid var(--card-spinner-track);
+  border-top-color: var(--focus);
+  animation: spin 0.7s linear infinite;
+}
+
+/* The conflict: a red card, its sentence with the path set as code. */
+.rewind-conflict-dialog {
+  background: var(--card-red-ground);
+  border-color: var(--card-red-edge);
+  box-shadow: none;
+  overflow: visible;
+  animation-duration: 0.35s;
+}
+
+.rewind-conflict-dialog .rewind-dialog-title {
+  border-radius: 6px 6px 0 0;
+  background: var(--card-red-title);
+  border-bottom-color: var(--card-red-edge);
+  color: var(--card-red-title-ink);
+}
+
+.rewind-conflict-dialog .rewind-dialog-body {
+  color: var(--card-red-body);
+}
+
+.rewind-code {
+  padding: 1px 4px;
+  font: 12px var(--mono);
+  background: var(--inline-code);
+  border-radius: 3px;
+}
+
+.rewind-conflict-files {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 9px 12px 0;
+}
+
+.rewind-conflict-file {
+  display: flex;
+  flex-direction: column;
+}
+
+/* «▶ Ver diferencias en …»: its ▶ turns on the spring curve, its ground warms on hover. */
+.rewind-diff-toggle {
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: -2px 0 0 -7px;
+  padding: 3px 9px 3px 7px;
+  font: 600 11px var(--mono);
+  color: var(--card-red-ink);
+  background: none;
+  border: 0;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.rewind-diff-toggle::before {
+  content: '▶';
+  display: inline-block;
+  font-size: 8px;
+  transition: transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+
+.rewind-diff-toggle[aria-expanded='true']::before {
+  transform: rotate(90deg);
+}
+
+.rewind-diff-toggle:hover {
+  background: var(--card-red-hover);
+}
+
+/* The diff opens as the canvas' grid row does: 0fr to 1fr in .3s, its contents fading in. */
+.rewind-diff {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.3s cubic-bezier(0.3, 0.8, 0.3, 1);
+}
+
+.rewind-diff.is-open {
+  grid-template-rows: 1fr;
+}
+
+.rewind-diff-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.rewind-diff-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 2px;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition:
+    opacity 0.22s ease-out 0.06s,
+    transform 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.1);
+}
+
+.rewind-diff.is-open .rewind-diff-content {
+  opacity: 1;
+  transform: none;
+}
+
+.rewind-diff-where {
+  font: 11px var(--mono);
+  color: var(--ink-soft);
+}
+
+.rewind-diff-columns {
+  display: flex;
+  gap: 8px;
+}
+
+.rewind-diff-column {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-raised);
+  border: 1px solid var(--edge-soft);
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.rewind-diff-column-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  background: var(--card-diff-header);
+  border-bottom: 1px solid var(--raised-bottom);
+  font: 600 10.5px var(--sans);
+}
+
+.rewind-diff-column-heading {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rewind-diff-column-heading::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.rewind-diff-column--current .rewind-diff-column-header {
+  color: var(--card-diff-current);
+}
+
+.rewind-diff-column--point .rewind-diff-column-header {
+  color: var(--card-red-soft);
+}
+
+.rewind-diff-column-note {
+  font: 400 10px var(--mono);
+  color: var(--ink-faint);
+}
+
+.rewind-diff-column .diff-body {
+  padding: 3px 0;
+  font: 11px/1.7 var(--mono);
+}
+
+.rewind-diff-column .diff-line-no {
+  width: 28px;
+  padding-right: 8px;
+}
+
+/* What the rewind discards is blue, in the current version. What it restores is red, at
+   the point. These are the canvas' two colours for them. */
+.rewind-diff-column--current .diff-line--remove {
+  color: var(--card-remove-ink);
+  background: var(--card-remove-ground);
+}
+
+.rewind-diff-column--current .diff-line--remove .diff-line-no {
+  color: var(--card-remove-no);
+}
+
+.rewind-diff-column--point .diff-line--add {
+  color: var(--red);
+  background: var(--red-ground);
+}
+
+.rewind-diff-column--point .diff-line--add .diff-line-no {
+  color: var(--card-add-no);
+}
+
+/* «Restaurar los otros N | ▼»: one rose pill in two halves, with the menu above its right end. */
+.rewind-split {
+  position: relative;
+  display: flex;
+}
+
+.rewind-split-main {
+  padding: 5px 14px 5px 15px;
+  border-radius: 999px 0 0 999px;
+}
+
+.rewind-split-toggle {
+  margin-left: -1px;
+  padding: 5px 10px 5px 8px;
+  border-radius: 0 999px 999px 0;
+  border-left-color: var(--card-rose-split);
+}
+
+.rewind-split-arrow {
+  display: inline-block;
+  font-size: 8px;
+  transition: transform 0.2s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+
+.rewind-split-toggle.is-open .rewind-split-arrow {
+  transform: rotate(180deg);
+}
+
+.rewind-choice-label {
+  font: inherit;
+}
+
+.rewind-split-menu {
+  position: absolute;
+  right: 0;
+  bottom: 32px;
+  z-index: 6;
+  width: 250px;
+  display: flex;
+  flex-direction: column;
+  background: var(--card-menu);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--edge-strong);
+  border-radius: 6px;
+  box-shadow:
+    3px 3px 0 rgba(var(--shade-rgb), 0.2),
+    0 12px 28px rgba(var(--shade-deep-rgb), 0.2);
+  overflow: hidden;
+  transform-origin: bottom right;
+  animation: menuIn 0.17s var(--ease-open) backwards;
+}
+
+.rewind-split-menu.is-closing {
+  opacity: 0;
+  transform: scale(0.94);
+  transition:
+    opacity var(--close-ms) ease-in,
+    transform var(--close-ms) ease-in;
+}
+
+.rewind-menu-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 7px 12px;
+  text-align: left;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.rewind-menu-item + .rewind-menu-item {
+  border-top: 1px solid var(--divider);
+}
+
+.rewind-menu-item:hover {
+  background: var(--selection);
+}
+
+.rewind-menu-item .rewind-choice-label {
+  font: 600 12px var(--sans);
+  color: var(--ink);
+}
+
+.rewind-choice-subtitle {
+  font: 10.5px var(--mono);
+  color: var(--ink-soft);
+}
+
+.rewind-menu-item.is-danger:hover {
+  background: var(--card-danger-hover);
+}
+
+.rewind-menu-item.is-danger .rewind-choice-label {
+  color: var(--card-red-ink);
+}
+
+.rewind-menu-item.is-danger .rewind-choice-subtitle {
+  color: var(--card-red-soft);
+}
+
+.rewind-menu-item:focus-visible {
+  outline-offset: -2px;
+}
+
+/* The result: the canvas' blue pill, stamped in, with «Rehacer» as a separate small pill. */
+.rewind-result-wrapper {
+  align-self: flex-end;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.rewind-result {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  background: var(--card-blue-pill);
+  border: 1px solid var(--blue-border);
+  border-radius: 999px;
+  box-shadow: inset 0 1px 0 var(--highlight);
+  font: 11px var(--mono);
+  color: var(--blue);
+  animation: stampIn 0.38s cubic-bezier(0.2, 0.9, 0.3, 1.35) both;
+}
+
+.rewind-result-icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #d6e4f6, #5a7fc0);
+  font: 700 10px var(--sans);
+  color: #fff;
+}
+
+.rewind-result-title {
+  font-weight: 600;
+}
+
+.rewind-result-detail {
+  color: var(--card-blue-detail);
+}
+
+.rewind-redo {
+  margin-left: 4px;
+  padding: 2px 9px;
+  font: 600 10.5px var(--sans);
+  color: var(--blue);
+  background: var(--surface);
+  border: 1px solid var(--blue-border);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: transform 0.08s ease-out;
+}
+
+.rewind-redo:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.rewind-redo:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.rewind-result-error:empty {
+  display: none;
+}
+
+.rewind-result-error {
+  color: var(--red);
+}
+
+.rewind-result-failed {
+  font: 10.5px var(--mono);
+  color: var(--red);
+}
+
+/* ---------- error card (design 1j "Errores por ventana") ---- */
+
+.error-card {
+  padding: 9px 12px;
+  border: 1px solid var(--red-border);
+  border-radius: 6px;
+}
+
+.error-card-title {
+  font: 700 12px var(--sans);
+  color: var(--red-strong);
+}
+
+.error-card-detail {
+  margin-top: 3px;
+  font: 11.5px var(--mono);
+  color: var(--red);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ask-dot,
+  .tool-spinner {
+    animation: none;
+  }
+}
+
+/* ---------- service error card (design 1j: «Límite de uso alcanzado» / «La API no
+   respondió»). Colours and type are the canvas's computed values. ---------- */
+
+.service-error {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--card-service);
+  border: 1px solid var(--card-red-edge);
+  border-radius: 8px;
+  box-shadow: 2px 2px 0 rgba(var(--card-red-shadow-rgb), 0.1), inset 0 1px 0 var(--highlight);
+  /* The canvas' 1j entrance: after the answer it belongs to, on the opening curve. */
+  animation: errIn 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2) 0.15s both;
+}
+
+.service-error-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  background: var(--card-red-title);
+  border-bottom: 1px solid var(--card-red-edge);
+  box-shadow: inset 0 1px 0 var(--card-red-title-top);
+  font: 600 11.5px var(--mono);
+  color: var(--red-strong);
+}
+
+.service-error-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #c8574b;
+  box-shadow: 0 0 6px rgba(200, 87, 75, 0.7);
+}
+
+.service-error-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px 11px;
+}
+
+.service-error-log {
+  display: flex;
+  flex-direction: column;
+  padding: 7px 10px;
+  background: var(--card-red-ground);
+  border: 1px solid var(--card-log-edge);
+  border-radius: 5px;
+  box-shadow: inset 1px 1px 2px rgba(var(--card-red-shadow-rgb), 0.08);
+  font: 11px/1.6 var(--mono);
+  color: var(--ink);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+/* «Detalle técnico»: opens the provider's own words, kept out of sight by default. */
+.service-error-detail-toggle {
+  align-self: flex-start;
+  font: 10.5px var(--mono);
+  color: var(--card-red-faint);
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+
+.service-error-detail-toggle:hover,
+.service-error-detail-toggle:focus-visible {
+  color: var(--red-strong);
+}
+
+.service-error-code {
+  color: var(--card-red-code);
+  font-weight: 600;
+}
+
+.service-error-said,
+.service-error-note {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--red-strong);
+}
+
+.service-error-line.is-faint {
+  color: var(--card-red-faint);
+}
+
+.service-error-resume {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: 10.5px var(--mono);
+  color: var(--card-red-faint);
+}
+
+.service-error-resume > span:first-child {
+  flex: none;
+}
+
+.service-error-drain {
+  flex: 1;
+  height: 5px;
+  background: var(--card-drain);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.service-error-drain > span {
+  display: block;
+  height: 100%;
+  background: #c8574b;
+  animation-name: service-error-drain;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+.service-error-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+/* «Reintentar», or «Esperar» while the core will resume by itself (design 1j): the blue pill. */
+.service-error-retry,
+.service-error-wait {
+  padding: 4px 15px;
+  font: 600 11px var(--sans);
+  color: var(--ink-heading);
+  background: var(--card-blue-button);
+  border: 1px solid var(--card-blue-button-edge);
+  border-radius: 999px;
+  box-shadow: 0 2px 4px rgba(var(--card-blue-shadow-rgb), 0.25), inset 0 1px 0 var(--card-blue-button-top);
+  cursor: pointer;
+  transition: transform 0.08s ease-out;
+}
+
+.service-error-retry:active:not(:disabled),
+.service-error-wait:active {
+  transform: translateY(1px);
+}
+
+.service-error-retry:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* «Cambiar modelo» (design 1j): the raised square beside the pill, pressed down and in. */
+.service-error-change {
+  padding: 4px 12px;
+  font: 600 11px var(--sans);
+  color: var(--ink);
+  background: var(--raised);
+  border: 1px solid var(--raised-edge);
+  border-radius: 6px;
+  box-shadow: 2px 2px 0 rgba(var(--shade-rgb), 0.18), inset 1px 1px 0 var(--highlight);
+  cursor: pointer;
+  transition: transform 0.08s ease-out;
+}
+
+.service-error-change:active {
+  transform: translate(1px, 1px);
+}
+
+/* The core resumed the turn: the card stays as the record of what happened. */
+.service-error.is-resolved {
+  opacity: 0.7;
+}
+
+@keyframes service-error-drain {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .service-error,
+  .service-error-drain > span {
+    animation: none;
+  }
+}
+
+/* Design 4g: the permission card for an MCP server's tool. */
+.ask--external .ask-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ask-external-what {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ask-external-logo {
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+}
+
+.ask-external-heading {
+  flex: 1;
+  min-width: 0;
+  font: 600 13.5px var(--sans);
+  color: var(--ink-deep);
+  overflow-wrap: anywhere;
+}
+
+.ask-external-sent {
+  font: 11.5px var(--sans);
+  color: var(--ink-muted);
+  white-space: pre-wrap;
+}
+
+.ask-external-toggle {
+  align-self: flex-start;
+  font: 600 11px var(--sans);
+}
+
+.ask-external-details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: metaSwap 0.2s ease-out both;
+}
+
+.ask-external-details[hidden] {
+  display: none;
+}
+
+.ask-external-args {
+  margin: 0;
+  max-height: 180px;
+  overflow: auto;
+  padding: 7px 10px;
+  background: var(--surface-alt);
+  border: 1px solid var(--edge-soft);
+  border-radius: 5px;
+  box-shadow: inset 1px 1px 2px rgba(var(--shade-deep-rgb), 0.1);
+  font: 11.5px/1.6 var(--mono);
+  color: var(--ink-strong);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ask-external-target {
+  font: 10.5px var(--mono);
+  color: var(--ink-muted);
+}

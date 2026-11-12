@@ -1,0 +1,103 @@
+# electron-builder configuration (26.15.3, pinned in package.json). It is not under
+# package.json's "build" key: electron-builder reads this file only when that key is absent
+# (app-builder-lib's config/load.js, 25.x and 26.x), so the two cannot coexist.
+#
+# Releases are built and published by .github/workflows/release.yml, never from a laptop.
+# The maintainers' release notes have the one-time keys and what each step checks.
+
+appId: org.cogito.desktop
+productName: COGITO
+
+files:
+  - src/**/*
+  - package.json
+extraResources:
+  - from: assets
+    to: assets
+  # The Python core for the platform and architecture being packed, assembled first by
+  # packaging/bundle-core.py (desktop/build/ is not tracked). ${os} is the target (mac,
+  # win, linux); ${platform} would be the build host.
+  - from: build/core/${os}-${arch}/python
+    to: core/python
+directories:
+  output: dist
+
+# GitHub Releases is the only distribution channel. From this, electron-builder writes
+# latest.yml, latest-linux.yml, latest-mac.yml and each app's app-update.yml. CI builds
+# with --publish never and uploads everything itself, after signing.
+publish:
+  - provider: github
+    owner: DeliVali
+    repo: Cogito
+    releaseType: release
+
+# Refuses a package without its Python core, on every platform. On macOS, ad-hoc
+# codesigns the core's Mach-O files and then the bundle (no Apple Developer ID yet). Apple
+# Silicon refuses an unsigned bundle as damaged.
+afterPack: packaging/after-pack.js
+
+mac:
+  icon: assets/icons/icon-512.png
+  # The macOS updater downloads the zip; people install from the dmg.
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+    - target: zip
+      arch: [arm64, x64]
+  identity: null
+  hardenedRuntime: false
+  artifactName: ${productName}-${version}-${arch}-mac.${ext}
+
+win:
+  icon: assets/icons/icon.ico
+  target:
+    - target: nsis
+      arch: [x64]
+nsis:
+  # No spaces: GitHub rewrites them in asset names, which breaks the signed manifest's names.
+  artifactName: ${productName}-Setup-${version}.${ext}
+
+linux:
+  icon: assets/icons/icon-512.png
+  # /usr/bin/cogito and /opt/COGITO/cogito. packaging/linux/postinst.sh hardcodes this
+  # name, so it is fixed here, not derived.
+  executableName: cogito
+  # One window, one process: a second launch hands over to the first (main/index.js,
+  # requestSingleInstanceLock). SingleMainWindow is the freedesktop Desktop Entry hint for
+  # an app that cannot open another window. KDE Plasma (5.24+) reads it and drops "Open a
+  # new window" from its task manager. X-GNOME-SingleWindow is GNOME's older name for it.
+  desktop:
+    entry:
+      SingleMainWindow: 'true'
+      X-GNOME-SingleWindow: 'true'
+  target:
+    - target: AppImage
+      arch: [x64]
+    - target: deb
+      arch: [x64]
+  # PENDING: confirm the maintainer address shown in the .deb's control file.
+  maintainer: DeliVali <DeliVali@users.noreply.github.com>
+  # The APT repository's public key and the script that registers the repository. The
+  # release workflow first dearmors packaging/apt/cogito-archive-keyring.asc into the .gpg.
+  extraResources:
+    - from: packaging/apt
+      to: apt
+      filter:
+        - cogito-archive-keyring.gpg
+        - configure-apt-source.sh
+appImage:
+  artifactName: ${productName}-${version}-${arch}.${ext}
+deb:
+  # So that `sudo apt install --only-upgrade cogito` (design 3b) names it.
+  packageName: cogito
+  artifactName: cogito_${version}_${arch}.${ext}
+  # One script for both of fpm's postinst functions. after_install() runs on a first
+  # install. after_upgrade() runs on an upgrade and on a reinstall after `apt remove`,
+  # whose postrm (electron-builder's after-remove) deleted /usr/bin/cogito. See
+  # packaging/linux/postinst.sh. The purge body (packaging/linux/after-purge.sh) is put
+  # into postrm after the build by packaging/linux/inject-purge.py: fpm 1.17 accepts
+  # --deb-after-purge but never loads it.
+  afterInstall: packaging/linux/postinst.sh
+  fpm:
+    - --after-upgrade
+    - packaging/linux/postinst.sh

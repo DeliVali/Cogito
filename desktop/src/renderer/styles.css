@@ -1,0 +1,3281 @@
+/* `hidden` always hides. Without this, an author rule such as
+   `.projects-overlay { display: flex }` beats the UA's `[hidden] { display: none }` and the
+   element stays on screen while the code thinks it is gone (the project picker once stayed
+   over the open project this way). */
+[hidden] {
+  display: none !important;
+}
+
+/* The main window, design 1a, ported value for value from the canvas markup
+   (`COGITO v2.dc.html`, section 1a and its 1m variant): the striped title bar, the bar with
+   the project at the left and the model at the right, the thread column, the tool rows, and
+   the composer with the orb at its left and the message as a speech balloon. The handoff
+   README: «Fidelidad alta: colores, tipografía, espaciado, textos y animaciones son
+   finales.» Where a value differs from the canvas, the comment beside it says why. */
+
+:root {
+  --window: #d6dce6;
+  --window-edge: #667082;
+  --bar: #b4bdcd;
+  --transcript: #e8edf5;
+  --ink: #2b3350;
+  --ink-soft: #4c566e;
+  /* UX-04: the canvas' #8b93a3 measured 2.07-3.09:1 on this app's backgrounds
+     (`lab-wt-ux2/experiments/2026-09-29-ux-audit/shots/result-real.json`), under WCAG 2.2's
+     4.5:1 for normal text. This is the lightest value of the same hue that clears 4.5:1 on
+     every background it sits on; the hardest is the composer's #ccd4e2, at 4.77:1. */
+  --ink-faint: #4e5870;
+  --rule: #b9c3d4;
+  --raised: linear-gradient(#f6f8fc, #d3dae6);
+  --raised-edge: #8a94a8;
+  --amber: #c9a227;
+  --amber-ground: #f6f0d8;
+  --amber-ink: #5e4a15;
+
+  /* Decision pills, diff lines, tool-row and error-card states: the canvas' values
+     (sections 1a/1j/1l/1o). */
+  --green: #1f5a36;
+  --green-ground: #dcefe2;
+  --green-border: #8fbf9d;
+  --grey: #5a647b;
+  --grey-ground: rgba(236, 239, 244, 0.7);
+  --grey-border: #aab3c5;
+  --blue: #1d3a6b;
+  --blue-ground: rgba(230, 238, 250, 0.7);
+  --blue-border: #9bb0d2;
+  --red: #7c3026;
+  --red-strong: #5a1f18;
+  --red-border: #d49a92;
+  --red-ground: #f6e1df;
+  /* A diff's line numbers. The canvas' #b88a84 / #7fa88c measure 2.4:1 and 2.2:1 on their
+     grounds, under WCAG 2.2's 4.5:1, so they are darker like the faint tier (5.3:1 and
+     5.1:1), but still lighter than the line they number. */
+  --red-line-no: #8a4a42;
+  --green-line-no: #3d6b4c;
+
+  /* The keyboard focus ring, in the canvas' link/spinner blue: 6.0:1 on the darkest ground
+     it can sit on (the composer's #ccd4e2), above WCAG 2.2 SC 1.4.11's 3:1 for a non-text
+     indicator. */
+  --focus: #2c4a80;
+
+  /* Shared roles for the colours the stylesheets still write by hand, so a dark theme can
+     replace them. Each light value is the one already used for that role, so the light
+     theme is unchanged; a rule moves to one of these only where its value matches exactly. */
+  --panel: #eef2f8; /* a tab's or pane's ground: tools panel, explorer, toast */
+  --surface: #fff; /* cards and white rows */
+  --surface-raised: #fbfcfe; /* raised card fills */
+  --surface-alt: #f7f9fc; /* a second card fill */
+  --input: #f9fbfd; /* text fields: the composer's balloon, form inputs */
+  --code-ground: #f9fbfd; /* code and command output */
+  --list-ground: #f9fbfd; /* a framed list of rows (tools-list) */
+  --inline-code: #dde4ef;
+  --composer: #ccd4e2; /* the composer's ground */
+  --sidebar: linear-gradient(#e6ebf3, #d3dbe8); /* the context bar and the tools tabs */
+  --stripes: repeating-linear-gradient(0deg, #eef2f8 0 1px, #c5cedd 1px 2px, #dde3ee 2px 3px);
+  --titlebar-edge: #7b8598;
+  --overlay: rgba(207, 214, 226, 0.45); /* behind a dialog */
+  --selection: #c9d6ee; /* a selected row */
+  --active: #aebfdd; /* the active tab, the chosen segment */
+  --accent: #6e93d2; /* the bright blue: a switch that is on, progress, drop targets */
+  --accent-edge: #4f6fa8;
+  --primary: linear-gradient(#f1f6fe 0%, #c3d5f2 48%, #9fbbe8 52%, #cfdef5 100%);
+  --primary-ink: #14264a;
+  --track: #c4ccda; /* a switch that is off */
+  --raised-top: #f6f8fc; /* --raised's two stops, for gradients drawn by hand */
+  --raised-bottom: #d3dae6;
+  --edge-soft: #c4ccda;
+  --edge-strong: #6c7688;
+  --rule-soft: #e0e5ee; /* between rows of a list */
+  --divider: #ccd4e2;
+  --highlight: #fff; /* a bevel's lit edge, `inset 0 1px 0` */
+  --ink-strong: #26304a; /* row names */
+  --ink-deep: #1a2744;
+  --ink-heading: #1d2c4c;
+  --ink-label: #39415a; /* window titles */
+  --ink-muted: #6a7590;
+  --glyph: #9aa3b5; /* decorative marks only, never text that must be read */
+  /* Channels for the rgba() shadows and highlights, so each keeps its own alpha:
+     `rgba(var(--shade-rgb), 0.16)`. */
+  --shade-rgb: 45, 55, 78;
+  --shade-deep-rgb: 30, 45, 80;
+  --highlight-rgb: 255, 255, 255;
+  --shadow: 2px 2px 0 rgba(45, 55, 78, 0.08); /* the hard shadow under a list or card */
+  --shadow-window: 4px 4px 0 rgba(45, 55, 78, 0.22); /* under a window drawn in the page */
+  --emboss: 0 1px 0 rgba(255, 255, 255, 0.7); /* text pressed into a bar */
+
+  /* The design's families, both bundled by fonts.css. */
+  --sans: 'Open Sans', system-ui, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  /* Motion, fixed by the handoff README: menus open with this curve and close with a
+     140 ms shrink and fade. */
+  --ease-open: cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  --close-ms: 140ms;
+}
+
+/* The dark theme: the same platinum look in graphite. Bars and windows are dark grey, the
+   thread a deep slate, the ink light; the states keep their hues (green, amber, red, blue),
+   lighter on darker grounds. Electron drives this query from `nativeTheme.themeSource`
+   (src/main/appearance.js), so «Claro» and «Oscuro» in Diseño override the desktop and
+   «Sistema» follows it.
+
+   Contrast, WCAG 2.2 relative luminance, against every neutral ground below (--window,
+   --bar, --transcript, --panel, --surface*, --input, --list-ground, --inline-code,
+   --composer, --active, --selection, both stops of --raised and --sidebar). The hardest
+   ground for each is --raised-top, #434b5a:
+     --ink 7.20:1, --ink-strong 7.81, --ink-deep 8.10, --ink-heading 7.54, --ink-label 5.84,
+     --ink-soft 5.38, --ink-muted 4.74, --ink-faint 4.59 (on --composer 6.18, on
+     --transcript 8.56), --focus 4.11 (non-text, needs 3:1).
+   Each state ink on its own ground: --amber-ink 8.84, --green 7.90, --grey 5.98 (its ground
+   blended over --transcript), --blue 7.07 (same), --red 7.25, --red-strong 9.59,
+   --red-line-no 5.45, --green-line-no 5.63; --ink-faint on each of those grounds 6.18 or
+   more. On --window: --green 7.60, --red 6.62, --blue 7.54, --amber-ink 9.08, --grey 6.62.
+   --primary-ink on --primary's lightest stop, 5.36. --glyph is decorative (4.30 on
+   --transcript, 2.30 on --raised-top), as its light value is. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --window: #2b313c;
+    --window-edge: #0f1218;
+    --bar: #3a4250;
+    --transcript: #1b2028;
+    --ink: #e4e9f2;
+    --ink-soft: #c3cbda;
+    --ink-faint: #b3bccd;
+    --rule: #3e4656;
+    --raised: linear-gradient(#434b5a, #313844);
+    --raised-edge: #11151b;
+    --amber: #c9a227;
+    --amber-ground: #3a321a;
+    --amber-ink: #ecd690;
+
+    --green: #93d4a8;
+    --green-ground: #1b3325;
+    --green-border: #3f6f50;
+    --grey: #b0b9ca;
+    --grey-ground: rgba(58, 66, 80, 0.7);
+    --grey-border: #525b6d;
+    --blue: #adc6f0;
+    --blue-ground: rgba(42, 62, 100, 0.7);
+    --blue-border: #4a6492;
+    --red: #f2a59c;
+    --red-strong: #ffc6be;
+    --red-border: #8c4c44;
+    --red-ground: #3e2321;
+    --red-line-no: #d88c82;
+    --green-line-no: #79b48b;
+
+    --focus: #93b3e6;
+
+    --panel: #232933;
+    --surface: #2a303b;
+    --surface-raised: #2d3440;
+    --surface-alt: #29303a;
+    --input: #1f242d;
+    --code-ground: #1f242d;
+    --list-ground: #262c36;
+    --inline-code: #343c4a;
+    --composer: #313844;
+    --sidebar: linear-gradient(#3a414e, #2e3440);
+    --stripes: repeating-linear-gradient(0deg, #444c5a 0 1px, #2d333e 1px 2px, #3a414e 2px 3px);
+    --titlebar-edge: #0f1218;
+    --overlay: rgba(10, 12, 16, 0.55);
+    --selection: #2f4266;
+    --active: #33456a;
+    --accent: #7a9edb;
+    --accent-edge: #6283bf;
+    --primary: linear-gradient(#4b6697 0%, #3a5482 48%, #304a76 52%, #3e5a8c 100%);
+    --primary-ink: #f4f7fc;
+    --track: #3a414d;
+    --raised-top: #434b5a;
+    --raised-bottom: #313844;
+    --edge-soft: #4a5260;
+    --edge-strong: #161a21;
+    --rule-soft: #323946;
+    --divider: #3a414e;
+    --highlight: #4b5364;
+    --ink-strong: #eef2f8;
+    --ink-deep: #f3f6fb;
+    --ink-heading: #e9eef8;
+    --ink-label: #ccd3e1;
+    --ink-muted: #b6bfd0;
+    --glyph: #7a8396;
+    --shade-rgb: 0, 0, 0;
+    --shade-deep-rgb: 0, 0, 0;
+    /* A lit edge on graphite is a lighter grey, not white. */
+    --highlight-rgb: 110, 122, 145;
+    --shadow: 2px 2px 0 rgba(0, 0, 0, 0.35);
+    --shadow-window: 4px 4px 0 rgba(0, 0, 0, 0.5);
+    --emboss: 0 -1px 0 rgba(0, 0, 0, 0.45);
+  }
+}
+
+/* Colours only this file uses, kept here so the dark theme can replace them. Each light
+   value is the one the rule wrote by hand, so the light theme is unchanged. The shared
+   roles above stay the first choice; these are the values no shared role matches.
+
+   Dark contrast, measured as above: --ink-link 6.20:1 or more on every ground it sits on
+   (the composer, the running row, the loading row 5.99), --warn-ink 5.25 on --raised-top,
+   --amber-text 8.41 on --ask-head, --red-text and --error-ink 5.98 or more (the composer is
+   the hardest), --done-ink 5.96 on --pill-green, --said-ink 8.68, --check-ink 6.97,
+   --reject-ink 7.45, --allow-ink 5.35, --near-ink 7.06 and --over-ink 5.98 on the
+   composer, --grey 5.53 on --row-head and 5.20 on --pill-grey, --blue 5.56 on
+   --pill-blue. */
+:root {
+  --chrome-face: linear-gradient(135deg, #f4f7fb, #b9c3d4); /* the title bar's buttons */
+  --branch-ground: rgba(244, 247, 251, 0.6);
+  --warn-edge: #d9a441; /* the context store chip while the store is down */
+  --warn-ink: #6b4a08;
+  --amber-soft: #fbf4dc; /* the per-minute limit chip */
+  --amber-text: #4a390f;
+  --menu-ground: rgba(240, 245, 252, 0.9);
+  --menu-head: linear-gradient(#f6f8fc, #e2e8f2);
+  --loading-ground: #dfe8f6;
+  --check-ink: #243252;
+  --ink-link: #3c4d70; /* small blue-grey text: «Cargando…», «Mostrar más», running rows */
+  --spinner-track: #c3d3ec;
+  --red-text: #a4473b;
+  --green-text: #3f7d55;
+  --error-ink: #8c3030;
+  --error-strong: #b3261e;
+  --done-ink: #4f7d5c;
+  --scroll-thumb: #bfc9da;
+  --skeleton: linear-gradient(90deg, #dde3ee 0%, #f2f5fa 50%, #dde3ee 100%);
+  --said-ground: linear-gradient(#e6eefa, #d3e0f3); /* the person's own bubble */
+  --said-ink: #22304d;
+  --tint-ground: rgba(244, 247, 251, 0.85);
+  --link-rgb: 29, 58, 107;
+  --rule-mid: #d3dae6;
+  --rule-faint: #e8ecf2;
+  --ask-ground: linear-gradient(#fdfeff, #eef2f8);
+  --ask-ring: #8d7a28;
+  --ask-head: linear-gradient(#fcf3d4 0%, #f3e2a4 50%, #eed68a 51%, #f6e6b0 100%);
+  --reject-ink: #4a1510;
+  --reject-face: linear-gradient(#fdf1ef 0%, #f3c3bc 48%, #e79d93 52%, #f5cfc9 100%);
+  --reject-edge: #a4574c;
+  --allow-ink: #0f3a1f;
+  --allow-face: linear-gradient(#effaf2 0%, #aee3bf 48%, #7ccb97 52%, #bfeacc 100%);
+  --allow-edge: #3f8a57;
+  --stop-face: linear-gradient(#fbecea 0%, #eecac5 48%, #e4b3ac 52%, #f0d2cd 100%);
+  --send-face: linear-gradient(#f1f6fe 0%, #cddcf3 48%, #b3c9ea 52%, #d6e4f6 100%);
+  --send-edge: #6c7fa6;
+  --gloss-rgb: 255, 255, 255; /* the lit top edge of a glossy pill */
+  --gloss-press: 0 1px 0 rgba(255, 255, 255, 0.5);
+  --pill-green: linear-gradient(#eef7f0, #dcefe2);
+  --pill-grey: linear-gradient(#f3f5f8, #e2e6ed);
+  --pill-blue: linear-gradient(#f1f6fe, #dde8f7);
+  --row-head: linear-gradient(#f3f6fa, #e4e9f1); /* a tool row's and the changes card's head */
+  --accent-rgb: 110, 147, 210;
+  --paper: #fbfcf8; /* a command's output */
+  --more-hover: #e2e9f4;
+  --reset-hover: #e4eaf4;
+  --running-ground: #f3f7fd;
+  --failed-ground: rgba(246, 225, 223, 0.4);
+  --cancelled-ground: #f1f3f7;
+  --dot-ring: #f4f7fb;
+  --composer-edge: #98a2b6;
+  --ring-track: #a3adc0;
+  --ring-fill: #3f6fc0;
+  --near-ink: #8a5a10;
+  --over-ink: #a4392e;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --chrome-face: linear-gradient(135deg, #4b5364, #313844);
+    --branch-ground: rgba(42, 48, 59, 0.6);
+    --warn-edge: #8a6a24;
+    --warn-ink: #e6c56a;
+    --amber-soft: #3a321a;
+    --amber-text: #ecd690;
+    --menu-ground: rgba(43, 49, 60, 0.92);
+    --menu-head: linear-gradient(#434b5a, #363d4a);
+    --loading-ground: #2a3a58;
+    --check-ink: #c9d8f2;
+    --ink-link: #a9bde0;
+    --spinner-track: #3a4a66;
+    --red-text: #f2a59c;
+    --green-text: #93d4a8;
+    --error-ink: #f2a59c;
+    --error-strong: #f2a59c;
+    --done-ink: #8cc9a0;
+    --scroll-thumb: #4a5262;
+    --skeleton: linear-gradient(90deg, #2a303b 0%, #353c49 50%, #2a303b 100%);
+    --said-ground: linear-gradient(#2f4063, #283756);
+    --said-ink: #e4ecf8;
+    --tint-ground: rgba(42, 48, 59, 0.85);
+    --link-rgb: 173, 198, 240;
+    --rule-mid: #3a414e;
+    --rule-faint: #2e3440;
+    --ask-ground: linear-gradient(#2d3440, #232933);
+    --ask-ring: #d9b850;
+    --ask-head: linear-gradient(#4a4022 0%, #3f3519 50%, #382f15 51%, #43391c 100%);
+    --reject-ink: #ffd9d3;
+    --reject-face: linear-gradient(#6a3530 0%, #5a2a25 48%, #4e231f 52%, #5e2e29 100%);
+    --reject-edge: #8c4c44;
+    --allow-ink: #e4f8ea;
+    --allow-face: linear-gradient(#376f4a 0%, #2f6643 48%, #285a3a 52%, #306845 100%);
+    --allow-edge: #5aa673;
+    --stop-face: linear-gradient(#6a3530 0%, #5a2a25 48%, #4e231f 52%, #5e2e29 100%);
+    --send-face: linear-gradient(#4b6697 0%, #3a5482 48%, #304a76 52%, #3e5a8c 100%);
+    --send-edge: #6283bf;
+    --gloss-rgb: 140, 152, 175;
+    --gloss-press: 0 -1px 0 rgba(0, 0, 0, 0.4);
+    --pill-green: linear-gradient(#22402e, #1b3325);
+    --pill-grey: linear-gradient(#3a414e, #323946);
+    --pill-blue: linear-gradient(#2e4470, #283b60);
+    --row-head: linear-gradient(#363d4a, #2f3541);
+    --accent-rgb: 122, 158, 219;
+    --paper: #1f242d;
+    --more-hover: #323a48;
+    --reset-hover: #353c49;
+    --running-ground: #23304a;
+    --failed-ground: rgba(62, 35, 33, 0.6);
+    --cancelled-ground: #262b33;
+    --dot-ring: #434b5a;
+    --composer-edge: #11151b;
+    --ring-track: #4f586a;
+    --ring-fill: #7a9edb;
+    --near-ink: #e6c56a;
+    --over-ink: #f2a59c;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  height: 100vh;
+  display: grid;
+  grid-template-rows: 24px 34px 1fr auto;
+  /* One column that is never wider than the window: a bar whose chips do not fit used to
+     widen the column, and the whole page sat a few pixels to the left of the window. */
+  grid-template-columns: minmax(0, 1fr);
+  background: var(--window);
+  color: var(--ink);
+  font: 13.5px/1.55 var(--sans);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  overflow: hidden;
+}
+
+button {
+  font-family: inherit;
+}
+
+/* The window's four rows, placed explicitly: the thread's skeleton shares the third. */
+.titlebar {
+  grid-row: 1;
+}
+
+.contextbar {
+  grid-row: 2;
+}
+
+/* The thread sits inside `.thread-area` (explorer.css), which takes this row. */
+
+.composer {
+  grid-row: 4;
+}
+
+/* The update's security strip (update.css) takes its own row between the bar and the thread. */
+html body.has-update-strip {
+  grid-template-rows: 24px 34px auto 1fr auto;
+}
+
+body.has-update-strip .update-strip {
+  grid-row: 3;
+}
+
+body.has-update-strip .thread-skeleton,
+body.has-update-strip .jump-latest {
+  grid-row: 4;
+}
+
+body.has-update-strip .composer {
+  grid-row: 5;
+}
+
+/* ---------- focus: keyboard only ---------- */
+
+/* A click never draws a ring; only `:focus-visible` does (the browser's "this focus came
+   from the keyboard" test). A text field draws none, as in the canvas: its blinking caret is
+   the focus indicator, which W3C's Understanding SC 2.4.7 (WCAG 2.2) accepts ("a vertical
+   bar is displayed in the field"). A ring around the composer would stay on the whole time
+   the person types. */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+:where(
+    button,
+    [role='button'],
+    [role='tab'],
+    [role='menuitem'],
+    [role='switch'],
+    [role='radio'],
+    a[href],
+    input,
+    select,
+    [tabindex]
+  ):focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* ---------- motion ---------- */
+
+@keyframes rise {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes menuIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-5px) scaleY(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes stampIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes dotPulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+@keyframes settle {
+  0% {
+    opacity: 0.4;
+    transform: scale(0.99);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes chipIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.85) translateY(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Everything that moves is held still when the system asks for less motion. The orb draws
+   one still frame by itself (liquid-orb.js). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0s !important;
+    transition-duration: 0.001ms !important;
+    transition-delay: 0s !important;
+  }
+}
+
+/* ---------- the glass sphere (title bar, project chip, answers) ---------- */
+
+/* The canvas draws these as a still CSS sphere. Only the orb beside the composer moves
+   with the agent's state. */
+.sphere {
+  display: inline-block;
+  flex: none;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 27%, #ffffff 0%, #e4eefa 30%, #bcd0ec 62%, #8aa6d2 100%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.6);
+}
+
+.sphere--title {
+  width: 13px;
+  height: 13px;
+}
+
+/* ---------- title bar ---------- */
+
+.titlebar {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding: 0 8px;
+  background: var(--stripes);
+  border-bottom: 1px solid var(--titlebar-edge);
+  -webkit-app-region: drag;
+}
+
+.wordmark {
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 0;
+  font: 600 12px var(--sans);
+  color: var(--ink-label);
+  text-shadow: var(--emboss);
+  white-space: nowrap;
+}
+
+.wordmark-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Where the platform puts its own: Windows and Linux at the right, minimise · maximise ·
+   close; macOS at the left, close · minimise · maximise. */
+.window-controls {
+  grid-column: 3;
+  grid-row: 1;
+  justify-self: end;
+  display: flex;
+  gap: 2px;
+  -webkit-app-region: no-drag;
+}
+
+.window-controls .chrome--close {
+  order: 3;
+}
+
+.titlebar[data-platform='darwin'] .window-controls {
+  grid-column: 1;
+  justify-self: start;
+}
+
+.titlebar[data-platform='darwin'] .window-controls .chrome--close {
+  order: -1;
+}
+
+/* Each control is a 24x24 target (WCAG 2.2 SC 2.5.8) around the canvas' OS 9 box (its
+   gradient, border and inset highlight), grown from 12 to 16 px so the glyph reads. At
+   12 px with no glyph the user could not tell the three apart. */
+.chrome {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0 -2px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+
+.chrome::before {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  background: var(--chrome-face);
+  border: 1px solid var(--edge-strong);
+  box-shadow: inset 1px 1px 0 var(--highlight);
+  transition:
+    filter 0.15s,
+    background 0.08s ease-out;
+}
+
+.chrome:hover::before {
+  filter: brightness(1.04);
+}
+
+.chrome:active::before {
+  background: var(--active);
+  box-shadow: inset 1px 1px 2px rgba(var(--shade-deep-rgb), 0.4);
+}
+
+.chrome svg {
+  position: relative;
+  width: 10px;
+  height: 10px;
+  fill: none;
+  stroke: var(--ink-label);
+  stroke-width: 1.6;
+  stroke-linecap: square;
+}
+
+.chrome:active svg {
+  transform: translate(0.5px, 0.5px);
+}
+
+.chrome--close svg {
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+.chrome--max .glyph-restore,
+.chrome--max.is-maximized .glyph-maximize {
+  display: none;
+}
+
+.chrome--max.is-maximized .glyph-restore {
+  display: block;
+}
+
+.chrome:focus-visible {
+  outline-offset: -2px;
+}
+
+/* ---------- context bar ---------- */
+
+.contextbar {
+  position: relative;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 0 10px;
+  background: var(--sidebar);
+  border-bottom: 1px solid var(--bar);
+  box-shadow: inset 0 1px 0 rgba(var(--highlight-rgb), 0.8);
+  animation: rise 0.35s ease-out 0.1s both;
+}
+
+.contextbar-spacer {
+  flex: 1;
+}
+
+/* A header chip, the canvas' raised chip: 11px mono, the gradient, the 1px drop and the
+   white inset; pressed down on :active, a touch brighter on hover. */
+.chip {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  /* In a narrow window the model chip takes the squeeze (see `.chip.project`); each chip
+     ellipsizes its own text. */
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 42%;
+  min-height: 24px;
+  padding: 4px 11px;
+  margin: 0;
+  background: var(--raised);
+  border: 1px solid var(--raised-edge);
+  border-radius: 5px;
+  box-shadow:
+    1px 1px 0 rgba(var(--shade-rgb), 0.16),
+    inset 1px 1px 0 var(--highlight);
+  font: 11px var(--mono);
+  color: var(--ink);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    transform 0.08s ease-out,
+    filter 0.15s;
+}
+
+button.chip:hover {
+  filter: brightness(1.04);
+}
+
+button.chip:active,
+button.chip[aria-expanded='true'] {
+  transform: translate(1px, 1px);
+  box-shadow: inset 1px 1px 2px rgba(var(--shade-deep-rgb), 0.3);
+}
+
+/* The chip's ▾, as the canvas draws it: 8px, #6a7590. */
+button.chip::after {
+  content: '▼';
+  flex: none;
+  font-size: 8px;
+  color: var(--ink-muted);
+}
+
+/* The project chip's sphere (9px) and ▾ are pseudo-elements, so the chip's text is only
+   its name. A block with inline pseudo-elements, not a flex row, lets the name ellipsize
+   between them. It and the branch never shrink below their text: a short name («calc»,
+   «main») is always whole, and a long one stops at its share and ellipsizes. Shrinking
+   them cut «calc» by one subpixel at 560 px (QA 2026-10-11). */
+.chip.project {
+  flex-shrink: 0;
+  max-width: 30%;
+  font-weight: 600;
+  overflow: hidden;
+}
+
+/* The name is its own element, so a long one ellipsizes between the sphere and the ▼: as
+   inline text in a block chip, the ▼ was cut off with it (QA 2026-10-13). */
+.project-chip-name {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chip.project::before {
+  content: '';
+  display: inline-block;
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 27%, #ffffff 0%, #bcd0ec 62%, #8aa6d2 100%);
+}
+
+/* Switching is refused while a turn runs, so the chip looks disabled. */
+.chip.project.is-busy {
+  cursor: default;
+  filter: saturate(0.6);
+}
+
+/* Git state is context, not a control: flat, lighter. */
+.chip.branch {
+  flex-shrink: 0;
+  max-width: 22%;
+  display: block;
+  padding: 4px 9px;
+  background: var(--branch-ground);
+  border-color: var(--bar);
+  box-shadow: none;
+  color: var(--ink-soft);
+  cursor: default;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The context store is down (or starting): a raised chip with the amber of a warning, and
+   no ▼, since it opens no menu; pressing it retries. Hidden while the store is up. */
+.chip.graph-chip {
+  /* First to give way in a narrow window (see `.chip.model`): its text ellipsizes. */
+  flex-shrink: 4;
+  min-width: 56px;
+  max-width: 34%;
+  /* A block, not the chip's flex row: only a block's text can end in «…». */
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-color: var(--warn-edge);
+  color: var(--warn-ink);
+}
+
+button.chip.graph-chip::after {
+  content: none;
+}
+
+.chip.graph-chip:disabled {
+  cursor: default;
+  filter: saturate(0.7);
+}
+
+.chip.model {
+  max-width: 55%;
+  min-width: 90px;
+  /* What does not fit is clipped inside the chip, never past the window's edge. */
+  overflow: hidden;
+}
+
+.model-service,
+.model-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The service host gives way before the model's name, which is what the person reads. */
+.model-service {
+  flex: 0 1000000 auto;
+  min-width: 0;
+}
+
+.model-service::after {
+  content: ' ·';
+}
+
+/* The name keeps its whole width while the service has any to give: sharing the squeeze
+   cut it by a subpixel, enough for «…». A name longer than the chip ellipsizes at it. */
+.model-name {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* The connection dot: green with its glow while the model answers, red when it cannot. */
+.pip {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: #3f9d5a;
+  box-shadow: 0 0 5px rgba(63, 157, 90, 0.5);
+}
+
+.pip.is-down {
+  background: #c8574b;
+  box-shadow: 0 0 5px rgba(200, 87, 75, 0.6);
+}
+
+/* «contexto N %»: how full the model's window is. Not in the canvas; kept quiet beside the
+   model so it never competes with it. */
+
+/* The conversation is larger than the served model's window. */
+
+/* ---------- near the per-minute limit (design 2e): the amber chip beside the model ---------- */
+
+.rate-near {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  padding: 3px 10px;
+  border: 1px solid var(--amber);
+  border-radius: 999px;
+  background: var(--amber-soft);
+  font: 11px var(--mono);
+  color: var(--amber-text);
+  white-space: nowrap;
+  cursor: help;
+  animation: chipIn 0.25s var(--ease-open) both;
+}
+
+.rate-near[hidden] {
+  display: none;
+}
+
+.rate-near-dot {
+  width: 9px;
+  height: 9px;
+  flex: none;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff3c4, #c9a227);
+  box-shadow: 0 0 6px rgba(201, 162, 39, 0.8);
+}
+
+/* ---------- menus (the model's, the project's) ---------- */
+
+/* The canvas' menu: frosted, a 1px dark edge, the hard 3px drop plus a soft shadow. Opens
+   with `menuIn` on the README's curve; closes with a 140 ms shrink and fade (`.is-closing`,
+   removed by the script after `--close-ms`). */
+.menu {
+  position: fixed;
+  z-index: 40;
+  min-width: 240px;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  background: var(--menu-ground);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--edge-strong);
+  border-radius: 6px;
+  box-shadow:
+    3px 3px 0 rgba(var(--shade-rgb), 0.2),
+    0 12px 28px rgba(var(--shade-deep-rgb), 0.2);
+  overflow: hidden;
+  transform-origin: top left;
+  animation: menuIn 0.17s var(--ease-open) backwards;
+  transition:
+    opacity var(--close-ms) ease-in,
+    transform var(--close-ms) ease-in;
+}
+
+.menu--right {
+  transform-origin: top right;
+}
+
+.menu.is-closing {
+  opacity: 0;
+  transform: scale(0.94);
+  pointer-events: none;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 8px 12px 8px 32px;
+  font: 600 12px var(--sans);
+  color: var(--ink);
+  text-align: left;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.menu-item:hover,
+.menu-item:focus-visible {
+  background: var(--selection);
+}
+
+.menu-item:focus-visible,
+.picker-item:focus-visible,
+.project-menu-item:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.menu-heading {
+  padding: 6px 12px;
+  background: var(--menu-head);
+  border-bottom: 1px solid var(--divider);
+  font: 10px var(--mono);
+  letter-spacing: 0.12em;
+  color: var(--ink-soft);
+}
+
+.menu-group {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 0;
+}
+
+.menu-group + .menu-group {
+  border-top: 1px solid var(--divider);
+}
+
+/* The model menu (design 1a): sections by service, the serving model checked, «Cargando…»
+   at the right while one loads. Anchored under the model chip, at the right. */
+.model-menu {
+  width: 300px;
+  /* The catalog can be long (many local entries); keep it on screen and scroll the rest. */
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+}
+
+.menu-item--tools {
+  border-top: 1px solid var(--divider);
+}
+
+.picker-section {
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid var(--divider);
+}
+
+.picker-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  background: var(--menu-head);
+  font: 10px var(--mono);
+  letter-spacing: 0.1em;
+  color: var(--ink-soft);
+}
+
+.picker-dot {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--grey-border);
+}
+
+.picker-dot.is-lit {
+  background: #3f9d5a;
+  box-shadow: 0 0 5px rgba(63, 157, 90, 0.5);
+}
+
+.picker-service {
+  flex: 1;
+}
+
+.picker-status {
+  letter-spacing: 0;
+  color: var(--ink-faint);
+}
+
+.picker-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 12px;
+  text-align: left;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.picker-item:hover:not(:disabled),
+.picker-item:focus-visible {
+  background: var(--selection);
+}
+
+.picker-item:disabled {
+  cursor: default;
+}
+
+/* UX-04: at 0.42 opacity, `--ink` on this row's background measured 2.28:1. 0.7 is the
+   faintest the row can be and still measure 4.5:1 or more (checked against the menu's
+   composited background). */
+.picker-item:disabled:not(.is-loading) {
+  opacity: 0.7;
+}
+
+.picker-item:disabled:not(.is-loading) .picker-sub {
+  color: var(--ink);
+}
+
+.picker-item.is-loading {
+  background: var(--loading-ground);
+}
+
+.picker-check {
+  width: 11px;
+  flex: none;
+  font: 700 10px var(--sans);
+  color: var(--check-ink);
+}
+
+.picker-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 12px var(--mono);
+  color: var(--ink);
+}
+
+.picker-item.is-loading .picker-name {
+  color: var(--ink-deep);
+}
+
+.picker-sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 10px var(--mono);
+  color: var(--ink-faint);
+}
+
+.picker-sub[data-tone='loading'] {
+  color: var(--ink-link);
+}
+
+.picker-spinner {
+  width: 9px;
+  height: 9px;
+  flex: none;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 2px solid var(--spinner-track);
+  border-top-color: var(--focus);
+  animation: spin 0.7s linear infinite;
+}
+
+.picker-note {
+  padding: 6px 12px 8px 32px;
+  font: 11px/1.4 var(--sans);
+  color: var(--ink-faint);
+}
+
+/* A path that keeps its last folder whole and gives up the middle (`pathNode`): the head
+   takes the «…» (its width is the row's less the tail's, in `ch`: these paths are
+   monospace), the tail is drawn as it is unless it alone is wider than the row. Inline
+   boxes, not a flex row: a flex row made the head and the tail two lines in `innerText`
+   and in a copied selection. */
+.path-split {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.path-split-head,
+.path-split-tail {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+}
+
+/* The project menu (design 1a): «PROYECTOS RECIENTES», each with ✓ on the open one, its
+   path and when it was last opened, then «Abrir carpeta…». Anchored at the left. */
+.project-menu {
+  width: 280px;
+}
+
+.project-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 7px 12px;
+  text-align: left;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.project-menu-item:hover:not(:disabled),
+.project-menu-item:focus-visible {
+  background: var(--selection);
+}
+
+.project-menu-item:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.project-menu-check {
+  width: 11px;
+  flex: none;
+  font: 700 10px var(--sans);
+  color: var(--check-ink);
+}
+
+.project-menu-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.project-menu-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 600 12px var(--sans);
+  color: var(--ink);
+}
+
+.project-menu-path,
+.project-menu-when {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 10px var(--mono);
+  color: var(--ink-faint);
+}
+
+.project-menu-when {
+  flex: none;
+}
+
+/* A folder that no longer exists: not a choice, so not a button. Its note and «Quitar de la
+   lista» share the last line. */
+.project-menu-item--missing {
+  cursor: default;
+}
+
+.project-menu-item--missing .project-menu-name,
+.project-menu-item--missing .project-menu-path {
+  opacity: 0.75;
+}
+
+.project-menu-missing-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.project-menu-note {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 10.5px var(--sans);
+  color: var(--red-text);
+}
+
+.project-menu-forget {
+  flex: none;
+  padding: 2px 9px;
+  font: 600 10.5px var(--sans);
+  color: var(--ink);
+  background: var(--raised);
+  border: 1px solid var(--raised-edge);
+  border-radius: 5px;
+  box-shadow:
+    1px 1px 0 rgba(var(--shade-rgb), 0.18),
+    inset 1px 1px 0 var(--highlight);
+  cursor: pointer;
+}
+
+.project-menu-forget:active {
+  transform: translate(1px, 1px);
+}
+
+.project-menu-forget:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.project-menu-empty {
+  padding: 7px 12px 7px 32px;
+  font: 11px/1.4 var(--sans);
+  color: var(--ink-faint);
+}
+
+/* ---------- transcript ---------- */
+
+.transcript {
+  position: relative;
+  overflow-y: auto;
+  background: var(--transcript);
+  user-select: text;
+}
+
+.column {
+  position: relative;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 18px 28px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.soft-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scroll-thumb) transparent;
+}
+.soft-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+.soft-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.soft-scroll::-webkit-scrollbar-thumb {
+  background: var(--scroll-thumb);
+  border-radius: 4px;
+  border: 2px solid var(--transcript);
+}
+
+/* Anything the thread gains while the window is open rises into place, like the canvas'
+   messages (`rise .4s ease-out`). The history read back on open does not: it was already
+   there. */
+[data-new] {
+  animation: rise 0.4s ease-out both;
+}
+
+/* The canvas' skeleton over the thread (1a: `skelOut`, `shimmer`), shown while the
+   project's history is being read, then faded out. Same grid cell as the transcript. */
+.thread-skeleton {
+  grid-row: 3;
+  grid-column: 1;
+  z-index: 2;
+  background: var(--transcript);
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.thread-skeleton.is-leaving {
+  animation: skelOut 0.4s ease-out forwards;
+}
+
+.thread-skeleton-column {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 26px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.skel {
+  border-radius: 4px;
+  background: var(--skeleton);
+  background-size: 800px 100%;
+  animation: shimmer 1.1s linear infinite;
+}
+
+.skel--bubble {
+  align-self: flex-end;
+  width: 46%;
+  height: 36px;
+  border-radius: 10px;
+}
+
+.skel--line {
+  width: 62%;
+  height: 13px;
+}
+
+.skel--row {
+  width: 88%;
+  height: 26px;
+  border-radius: 5px;
+}
+
+.skel--block {
+  width: 88%;
+  height: 110px;
+  border-radius: 6px;
+}
+
+.skel--short {
+  width: 54%;
+  height: 13px;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -400px 0;
+  }
+  100% {
+    background-position: 400px 0;
+  }
+}
+
+@keyframes skelOut {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+/* ---------- turns ---------- */
+
+.said {
+  align-self: flex-end;
+  max-width: 78%;
+  padding: 9px 13px;
+  background: var(--said-ground);
+  border: 1px solid var(--blue-border);
+  border-radius: 10px 10px 3px 10px;
+  box-shadow:
+    1px 1px 0 rgba(var(--shade-rgb), 0.12),
+    inset 0 1px 0 rgba(var(--highlight-rgb), 0.8);
+  font: 13.5px/1.55 var(--sans);
+  color: var(--said-ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.answer {
+  display: flex;
+  gap: 10px;
+}
+
+/* The answer's still sphere (18px), with the canvas' inner shade. */
+.answer-avatar {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  margin-top: 2px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 27%, #ffffff 0%, #e4eefa 30%, #bcd0ec 62%, #8aa6d2 100%);
+  box-shadow:
+    inset -2px -3px 5px rgba(60, 85, 130, 0.3),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.6);
+}
+
+.answer-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.prose {
+  font: 13.5px/1.62 var(--sans);
+  color: var(--ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+
+.prose strong {
+  font-weight: 600;
+}
+
+/* The rest of the model's Markdown (markdown.js): headings, lists, quotes, tables, rules,
+   links shown with their address. Same type as the prose around them. */
+.prose-heading {
+  font: 600 13.5px/1.4 var(--sans);
+  color: var(--ink);
+  margin-top: 4px;
+}
+
+.prose-h1 {
+  font-size: 17px;
+}
+
+.prose-h2 {
+  font-size: 15.5px;
+}
+
+.prose-h3 {
+  font-size: 14.5px;
+}
+
+.prose-list {
+  margin: 0;
+  padding-left: 22px;
+  font: 13.5px/1.62 var(--sans);
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.prose-list li > .prose-list {
+  margin-top: 2px;
+}
+
+.prose-list li {
+  overflow-wrap: anywhere;
+}
+
+.prose-list li > .prose {
+  white-space: normal;
+}
+
+.prose-task {
+  list-style: none;
+  margin-left: -18px;
+}
+
+.prose-task-box {
+  display: inline-block;
+  width: 18px;
+  color: var(--ink-soft);
+}
+
+.prose-task > .prose {
+  display: inline;
+}
+
+.prose-quote {
+  border-left: 3px solid var(--rule);
+  padding: 0 0 0 10px;
+  color: var(--ink-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.prose-rule {
+  border: 0;
+  border-top: 1px solid var(--edge-soft);
+  margin: 4px 0;
+  width: 100%;
+}
+
+.prose-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.prose-table {
+  border-collapse: collapse;
+  font: 13px/1.5 var(--sans);
+  color: var(--ink);
+}
+
+.prose-table th,
+.prose-table td {
+  border: 1px solid var(--edge-soft);
+  padding: 4px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.prose-table th {
+  font-weight: 600;
+  background: var(--tint-ground);
+}
+
+.prose-link {
+  color: var(--blue);
+  text-decoration: underline;
+  text-decoration-color: rgba(var(--link-rgb), 0.35);
+}
+
+.prose-link-url {
+  font: 11.5px var(--mono);
+  color: var(--ink-faint);
+  overflow-wrap: anywhere;
+}
+
+/* One reply's words (markdown.js), live and in history: its blocks keep the answer's gap. */
+.answer-text {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* While the reply streams: a caret after the last word. */
+.answer-text.is-streaming > :last-child::after {
+  content: '▍';
+  margin-left: 1px;
+  color: var(--ink-faint);
+  animation: caret-blink 1s steps(1) infinite;
+}
+
+@keyframes caret-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* The model's reasoning while it streams: its last lines, small and faint, gone once the
+   reply settles. */
+.thinking-live {
+  font: 11.5px/1.55 var(--sans);
+  color: var(--ink-faint);
+  border-left: 2px solid var(--edge-soft);
+  padding-left: 9px;
+}
+
+.thinking-live-label {
+  font-style: italic;
+}
+
+.thinking-live-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 4.65em;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column-reverse;
+}
+
+/* A tool call still streaming, before its `tool_start` (chat.js `liveToolCall`): the same
+ * register as `.thinking-live`, since it is the same kind of fact -- true now, gone once
+ * the call settles into its own row. */
+.tool-progress-live {
+  font: 12.5px/1.55 var(--sans);
+  color: var(--ink-faint);
+  font-style: italic;
+  border-left: 2px solid var(--edge-soft);
+  padding-left: 9px;
+}
+
+/* APP-ONLY auto-continue (long-output fix 3, chat.js `showContinuing`): the quiet line
+ * while a cut reply continues on its own, in the same faint register as the two above --
+ * true now, gone once the next part settles. Nothing to click. */
+.continuing-live {
+  font: 12.5px/1.55 var(--sans);
+  color: var(--ink-faint);
+  font-style: italic;
+  border-left: 2px solid var(--edge-soft);
+  padding-left: 9px;
+}
+
+/* Why a turn stopped before finishing (render-thread.js `buildStopLine`). */
+.stop-line {
+  font: 12.5px/1.5 var(--sans);
+  color: var(--ink-soft);
+}
+
+.stop-line--failure {
+  color: var(--red);
+  font-weight: 600;
+}
+
+/* «Continuar» (long-output fix 2), the only action a stop line offers. */
+.stop-line-action {
+  font: inherit;
+  color: var(--blue);
+  text-decoration: underline;
+  text-decoration-color: rgba(var(--link-rgb), 0.35);
+  background: none;
+  border: none;
+  padding: 0;
+  margin-left: 0.4em;
+  cursor: pointer;
+}
+
+.stop-line-action:disabled {
+  color: var(--ink-faint);
+  text-decoration: none;
+  cursor: default;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .answer-text.is-streaming > :last-child::after {
+    animation: none;
+  }
+}
+
+.meta {
+  font: 10.5px var(--mono);
+  color: var(--ink-faint); /* UX-04: #9aa3b5 measured 2.16:1 */
+}
+
+/* The day separator (design 1a/3a: «— HOY —»). The updater's «— ACTUALIZADO A X —» is
+   drawn in the same form, in update.css. */
+.day-separator,
+.thread-separator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.day-separator-rule {
+  flex: 1;
+  height: 1px;
+  background: var(--rule-mid);
+}
+
+.day-separator-label {
+  font: 10px var(--mono);
+  letter-spacing: 0.15em;
+  color: var(--ink-faint); /* UX-04: #aab3c5 measured 1.79:1 */
+  white-space: nowrap;
+}
+
+/* Where a compaction folded the conversation, in the history read back on open: a dotted
+   rule on each side of a small label that says what it is. */
+.fold-marker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 2px 0;
+}
+
+.fold-marker-rule {
+  flex: 1;
+  height: 0;
+  border-top: 1px dotted var(--edge-soft);
+}
+
+.fold-marker-label {
+  font: 10px var(--mono);
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+/* An error said as prose, never the model's own words in a failed turn (`.answer-text`). */
+.failed > .answer-body > .prose {
+  color: var(--error-ink);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+/* ---------- steering: «En cola» / «✓ Hecho» under the person's own bubble (design 1m) ---- */
+
+.said-status {
+  align-self: flex-end;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: -9px;
+  padding: 0 3px;
+  font: 10.5px var(--mono);
+  color: var(--ink-link);
+  animation: fadeIn 0.25s ease-out both;
+}
+
+.said-status.is-done {
+  color: var(--done-ink);
+}
+
+.said-status.is-failed {
+  color: var(--error-ink);
+}
+
+.said-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: dotPulse 1.1s ease-in-out infinite;
+}
+
+/* ---------- «↺ Volver a este punto · HH:MM» (design 1a/1k) ---------- */
+
+/* As in the canvas: 10.5px mono, a 4px-radius hover ground, right under the bubble. The
+   target is 24px tall (WCAG 2.2 SC 2.5.8); the negative top margin keeps it as close under
+   the bubble as the canvas' -8px. */
+.rewind-link {
+  align-self: flex-end;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 24px;
+  margin: -12px 0 -4px;
+  padding: 2px 8px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  font: 10.5px var(--mono);
+  color: var(--ink-faint);
+  cursor: pointer;
+  transition:
+    background 0.12s,
+    color 0.12s;
+}
+
+.rewind-link:hover:not(:disabled) {
+  background: var(--inline-code);
+  color: var(--ink);
+}
+
+.rewind-link:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* The context store is down: one line where the confirm would be, with «Reintentar». */
+.rewind-graph-down {
+  align-self: flex-end;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 24px;
+  margin: -12px 0 -4px;
+  padding: 2px 8px;
+  font: 10.5px var(--mono);
+  color: var(--warn-ink);
+}
+
+.rewind-graph-retry {
+  min-height: 24px;
+  padding: 2px 8px;
+  border: 1px solid var(--raised-edge);
+  border-radius: 4px;
+  background: var(--raised);
+  font: 10.5px var(--mono);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.rewind-graph-retry:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ---------- the permission card (design 1a: «Guardrail de seguridad · necesita tu permiso») ---- */
+
+/* The card is focusable (chat.js sets tabIndex) so ↵ / Esc answer it from the keyboard
+   alone. Its focus ring is the dark amber of its strip. */
+.ask {
+  display: flex;
+  flex-direction: column;
+  background: var(--ask-ground);
+  border: 1px solid var(--glyph);
+  border-radius: 8px;
+  box-shadow:
+    2px 2px 0 rgba(var(--shade-rgb), 0.12),
+    inset 0 1px 0 var(--highlight);
+  overflow: hidden;
+  transform-origin: top center;
+  animation: rise 0.35s ease-out both;
+}
+
+.ask:focus-visible {
+  outline: 2px solid var(--ask-ring);
+  outline-offset: 2px;
+}
+
+.ask-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 13px;
+  background: var(--ask-head);
+  border-bottom: 1px solid var(--amber);
+  box-shadow: inset 0 1px 0 rgba(var(--highlight-rgb), 0.8);
+  font: 600 11.5px var(--mono);
+  color: var(--amber-text);
+}
+
+.ask-dot {
+  width: 9px;
+  height: 9px;
+  flex: none;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff3c4, #c9a227);
+  box-shadow: 0 0 6px rgba(201, 162, 39, 0.8);
+}
+
+.ask-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 11px 13px 12px;
+}
+
+.ask-command {
+  padding: 7px 10px;
+  background: var(--surface-alt);
+  border: 1px solid var(--edge-soft);
+  border-radius: 5px;
+  box-shadow: inset 1px 1px 2px rgba(var(--shade-deep-rgb), 0.1);
+  font: 12px var(--mono);
+  color: var(--ink-strong);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.ask-text {
+  font: 12.5px/1.5 var(--sans);
+  color: var(--ink-soft);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ask-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.ask-shortcuts {
+  flex: 1;
+  font: 10.5px var(--mono);
+  color: var(--ink-faint);
+}
+
+/* The keys answer only the focused card, so they are shown only then (`is-focused`, set
+   by chat.js: a click on the card focuses it too, and the keys then work). */
+.ask:not(.is-focused) .ask-shortcuts {
+  visibility: hidden;
+}
+
+/* «Rechazar» (rose) and «Permitir» (green): the canvas' glossy pills. */
+.ask-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  min-height: 24px;
+  padding: 5px 15px;
+  font: 600 11.5px var(--sans);
+  color: var(--reject-ink);
+  background: var(--reject-face);
+  border: 1px solid var(--reject-edge);
+  border-radius: 999px;
+  box-shadow:
+    0 2px 4px rgba(140, 50, 40, 0.22),
+    inset 0 1px 0 rgba(var(--gloss-rgb), 0.9);
+  text-shadow: var(--gloss-press);
+  cursor: pointer;
+  transition:
+    transform 0.08s ease-out,
+    filter 0.15s;
+}
+
+.ask-button--allow {
+  padding: 5px 17px;
+  color: var(--allow-ink);
+  background: var(--allow-face);
+  border-color: var(--allow-edge);
+  box-shadow:
+    0 2px 4px rgba(40, 110, 60, 0.25),
+    inset 0 1px 0 rgba(var(--gloss-rgb), 0.95);
+}
+
+.ask-button:hover:not(:disabled) {
+  filter: brightness(1.04);
+}
+
+.ask-button:active:not(:disabled) {
+  transform: translateY(1px);
+  filter: brightness(0.93);
+}
+
+.ask-button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.ask.is-settled .ask-footer {
+  display: none;
+}
+
+.ask.is-settled .ask-dot {
+  opacity: 0.4;
+  box-shadow: none;
+}
+
+/* ---------- decision pills (design 1a/1o: «Permitiste» / «Rechazaste», stamped in) ---- */
+
+.pill {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px 5px 8px;
+  border-radius: 999px;
+  box-shadow: inset 0 1px 0 var(--highlight);
+  font: 11px var(--mono);
+  animation: stampIn 0.38s cubic-bezier(0.2, 0.9, 0.3, 1.35) 0.1s both;
+}
+
+.pill-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  border-radius: 50%;
+  font: 700 10px var(--sans);
+  line-height: 1;
+  color: #fff;
+}
+
+.pill-verb {
+  font-weight: 600;
+}
+
+.pill--green {
+  color: var(--green);
+  background: var(--pill-green);
+  border: 1px solid var(--green-border);
+}
+
+.pill--green .pill-icon {
+  background: radial-gradient(circle at 35% 30%, #bfe6c9, #3f9d5a);
+}
+
+.pill--green .pill-object {
+  color: var(--done-ink);
+}
+
+.pill--grey {
+  color: var(--grey);
+  background: var(--pill-grey);
+  border: 1px solid var(--grey-border);
+}
+
+.pill--grey .pill-icon {
+  background: radial-gradient(circle at 35% 30%, #e3e7ee, #8a94a8);
+  font-size: 9px;
+}
+
+.pill--grey .pill-object {
+  color: var(--ink-faint);
+}
+
+.pill--blue {
+  color: var(--blue);
+  background: var(--pill-blue);
+  border: 1px solid var(--blue-border);
+}
+
+.pill--blue .pill-icon {
+  background: radial-gradient(circle at 35% 30%, #c9daf3, #4f6fa8);
+}
+
+/* ---------- prose code (1a) ---------- */
+
+.inline-code {
+  font: 12px var(--mono);
+  background: var(--inline-code);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+/* ---------- tool rows (1a, and the 1m running row) ---------- */
+
+.tool-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tool-block {
+  border: 1px solid var(--edge-soft);
+  border-radius: 6px;
+  background: var(--tint-ground);
+  overflow: hidden;
+  box-shadow: 1px 1px 0 rgba(var(--shade-rgb), 0.06);
+}
+
+.tool-block-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 10px;
+  background: var(--row-head);
+  font: 11px var(--mono);
+  color: var(--grey);
+  user-select: none;
+  transition: filter 0.12s;
+}
+
+.tool-block-header.is-expandable {
+  cursor: pointer;
+}
+
+.tool-block-header.is-expandable:hover {
+  filter: brightness(1.03);
+}
+
+.tool-block-header.is-expandable:active {
+  filter: brightness(0.97);
+}
+
+/* «Ejecutar» (▶) on a shell block in a reply (markdown.js): opens a terminal tab with the
+   line. Only where terminals exist (`body.has-terminals`, terminals.js). Drawn like the
+   composer's own buttons (`.attach`): no ring, a muted icon that comes up under the pointer. */
+.code-run {
+  display: none;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  margin: -3px -4px -3px 4px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-muted);
+  opacity: 0.75;
+  cursor: pointer;
+  transition:
+    opacity 0.12s,
+    background 0.12s,
+    color 0.12s;
+}
+
+body.has-terminals .code-run {
+  display: inline-flex;
+}
+
+.code-run svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.code-run:hover:not(:disabled) {
+  opacity: 1;
+  color: var(--ink);
+  background: rgba(var(--accent-rgb), 0.12);
+}
+
+.code-run:focus-visible {
+  opacity: 1;
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.code-run:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.code-run.is-failed {
+  opacity: 1;
+  color: var(--error-strong);
+}
+
+.tool-block-arrow {
+  display: inline-block;
+  flex: none;
+  font-size: 8px;
+  transition: transform 0.2s var(--ease-open);
+}
+
+/* The verb in the canvas' weight and ink; its target in the row's grey. */
+.tool-block-label {
+  min-width: 0;
+  flex-shrink: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tool-block-verb {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.tool-block-spacer {
+  flex: 1;
+}
+
+.tool-block-meta {
+  display: flex;
+  gap: 6px;
+  flex: none;
+  white-space: nowrap;
+}
+
+/* Expand/collapse as in the canvas: the body's row grows from 0fr to 1fr and its contents
+   fade in (expander.js sets `.is-open`). */
+.tool-block-body.is-expander {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.24s cubic-bezier(0.3, 0.8, 0.3, 1);
+}
+
+.tool-block-body.is-expander.is-open {
+  grid-template-rows: 1fr;
+}
+
+.tool-block-body.is-expander > .tool-block-inner {
+  min-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 0.2s ease-out;
+}
+
+.tool-block-body.is-expander.is-open > .tool-block-inner {
+  opacity: 1;
+}
+
+.tool-block-inner > * {
+  border-top: 1px solid var(--rule-mid);
+}
+
+.tool-block-body pre {
+  margin: 0;
+  padding: 7px 12px;
+  background: var(--code-ground);
+  font: 11px/1.6 var(--mono);
+  color: var(--ink-soft);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* A grouped read's file list ("Leyó 2 archivos", expanded). */
+.tool-block-path {
+  padding: 7px 12px;
+  background: var(--code-ground);
+  font: 11px/1.6 var(--mono);
+  color: var(--ink-soft);
+}
+
+/* One file per line, its length after it: «src/cart.ts · 64 líneas» (design 1a). The
+   canvas' #9aa3b5 is the faint tier, darkened for contrast as elsewhere. */
+.tool-block-file {
+  display: flex;
+  gap: 0.6ch;
+  flex-wrap: wrap;
+}
+
+.tool-block-file-meta {
+  color: var(--ink-faint);
+}
+
+/* A subagent's calls, listed in its opened row: a short window that follows the newest. */
+.tool-sub-steps {
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.tool-sub-steps + * {
+  border-top: 1px solid var(--rule-mid);
+}
+
+.tool-sub-step--failed {
+  color: var(--red-text);
+}
+
+.tool-sub-step--running,
+.tool-sub-step--earlier {
+  color: var(--ink-faint);
+}
+
+/* The row's own box clips overflow, so its keyboard ring is drawn inside it. */
+.tool-block-header.is-expandable:focus-visible,
+.tool-detail-more:focus-visible {
+  outline-offset: -2px;
+}
+
+/* What a finished row opens onto (render-tool-detail.js): design 1a's expanded «Editó»
+   (the diff on #f9fbfd, with `.diff-lines` giving its 3px padding and 11.5px/1.7 lines) and
+   its expanded «Ejecutó» (the command's output on the canvas' inset paper). */
+.tool-detail--diff {
+  background: var(--code-ground);
+}
+
+.tool-output {
+  display: flex;
+  flex-direction: column;
+  padding: 9px 12px;
+  background: var(--paper);
+  box-shadow: inset 1px 1px 3px rgba(var(--shade-deep-rgb), 0.12);
+  font: 11.5px/1.65 var(--mono);
+  color: var(--ink);
+  overflow-x: auto;
+}
+
+.tool-output-line {
+  white-space: pre;
+}
+
+/* 1l's «Clic para expandir · N líneas más» / «Mostrar menos» (`dfMore`): a dashed rule,
+   the paper fading into #eef2f8, and a ▼ that flips once everything is shown. A real
+   button. */
+.tool-detail-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  margin: 0;
+  padding: 5px 0;
+  border: 0;
+  border-top: 1px dashed var(--edge-soft);
+  border-radius: 0;
+  background: linear-gradient(rgba(251, 252, 254, 0), var(--panel) 60%);
+  font: 10.5px var(--mono);
+  color: var(--ink-link);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.tool-detail-more:hover {
+  background: var(--more-hover);
+}
+
+.tool-detail-more-glyph {
+  display: inline-block;
+  font-size: 8px;
+  transition: transform 0.22s var(--ease-open);
+}
+
+.tool-detail-note {
+  padding: 4px 12px 6px;
+  font: 10px var(--mono);
+  color: var(--ink-faint);
+}
+
+/* Running (design 1m): the blue row with the canvas' spinner. */
+.tool-block--running {
+  border-color: var(--blue-border);
+  background: var(--running-ground);
+}
+
+.tool-block--running > .tool-block-header {
+  background: none;
+  color: var(--ink-link);
+}
+
+.tool-block--running .tool-block-verb {
+  color: var(--ink-deep);
+}
+
+.tool-spinner {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid var(--spinner-track);
+  border-top-color: var(--focus);
+  animation: spin 0.7s linear infinite;
+}
+
+/* A finished row settles in place of its running one (the canvas' `settle`). */
+.tool-block.is-settled {
+  animation: settle 0.35s ease-out both;
+}
+
+.tool-block--failed {
+  border-color: var(--red-border);
+  background: var(--failed-ground);
+}
+
+.tool-block--failed .tool-block-verb {
+  color: var(--red);
+}
+
+/* Cancelled (the canvas: grey and dashed, with a ■ mark in place of the spinner/arrow). */
+.tool-block--cancelled {
+  border-style: dashed;
+  border-color: var(--grey-border);
+  background: var(--cancelled-ground);
+}
+
+.tool-block--cancelled > .tool-block-header {
+  background: none;
+}
+
+.tool-block--cancelled .tool-block-verb {
+  color: var(--grey);
+}
+
+/* The canvas' ■ in a 14px grey disc. */
+.tool-cancelled-icon {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--track);
+  font: 700 8px var(--sans);
+  color: #fff;
+}
+
+/* A call whose approval is still pending: the approval card is the one signal, so its row
+   is not drawn until the call runs. */
+.tool-block--waiting {
+  display: none;
+}
+
+.tool-block-note {
+  padding: 5px 12px 7px;
+  font: 10.5px var(--mono);
+  color: var(--ink-faint);
+  border-top: 1px solid var(--rule);
+}
+
+.tool-block-note--error {
+  color: var(--red);
+}
+
+.tool-block-note-toggle {
+  font: inherit;
+  color: var(--ink-faint);
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+
+.tool-block-note-toggle:hover,
+.tool-block-note-toggle:focus-visible {
+  color: var(--ink-soft);
+}
+
+.tool-block-note-text {
+  margin-top: 4px;
+  color: var(--red);
+}
+
+/* ---------- diff lines (shared by tool rows and the changes card) ---- */
+
+.diff-lines {
+  padding: 3px 0;
+  font: 11.5px/1.7 var(--mono);
+}
+
+.diff-line {
+  display: flex;
+}
+
+.diff-line-no {
+  width: 34px;
+  flex: none;
+  text-align: right;
+  padding-right: 10px;
+  color: var(--ink-faint);
+}
+
+.diff-line-text {
+  white-space: pre;
+  overflow-wrap: anywhere;
+}
+
+/* The «+»/«−» column, apart from the code so every line's text starts at the same place. */
+.diff-line-sign {
+  display: inline-block;
+  width: 2ch;
+  user-select: none;
+}
+
+.diff-line--context {
+  color: var(--ink-soft);
+}
+
+.diff-line--add {
+  background: var(--green-ground);
+  color: var(--green);
+}
+
+.diff-line--add .diff-line-no {
+  color: var(--green-line-no);
+}
+
+.diff-line--remove {
+  background: var(--red-ground);
+  color: var(--red);
+}
+
+.diff-line--remove .diff-line-no {
+  color: var(--red-line-no);
+}
+
+/* Inline +/- colouring for a tool row's result, the changes card's totals and each file's
+   counts. The canvas' #3f7d55 / #a4473b. */
+.diff-add {
+  color: var(--green-text);
+}
+
+.diff-remove {
+  color: var(--red-text);
+}
+
+/* ---------- «Cambios de este turno» (design 1a/1l) ---- */
+
+.changes-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--bar);
+  border-radius: 7px;
+  background: var(--list-ground);
+  box-shadow:
+    2px 2px 0 rgba(var(--shade-rgb), 0.1),
+    inset 0 1px 0 var(--highlight);
+  overflow: hidden;
+  animation: rise 0.35s ease-out both;
+}
+
+.changes-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--row-head);
+  font: 600 11px var(--mono);
+  color: var(--ink);
+}
+
+.changes-card-count {
+  font-weight: 400;
+  color: var(--grey);
+}
+
+.changes-card-totals {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+  font-weight: 400;
+}
+
+.change-file {
+  border-top: 1px solid var(--rule-soft);
+}
+
+.change-file-header {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 12px;
+  font: 12px var(--mono);
+  color: var(--ink-strong);
+  transition: background 0.12s;
+}
+
+.change-file-header.is-expandable {
+  cursor: pointer;
+}
+
+.change-file-header.is-expandable:hover {
+  background: var(--panel);
+}
+
+.change-file-header .tool-block-arrow {
+  color: var(--grey);
+}
+
+/* The diffstat's five 7px squares (design 1a). */
+.change-file-stat {
+  display: flex;
+  gap: 2px;
+  flex: none;
+}
+
+.change-file-stat > span {
+  width: 7px;
+  height: 7px;
+  border-radius: 1px;
+  background: var(--rule-mid);
+}
+
+.change-file-stat > .stat-add {
+  background: #5fae78;
+}
+
+.change-file-stat > .stat-remove {
+  background: #d0685c;
+}
+
+.change-file-path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.change-file-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font: 11px var(--mono);
+  color: var(--grey);
+}
+
+.change-file-body {
+  border-top: 1px solid var(--rule-faint);
+  background: var(--surface-raised);
+}
+
+.change-expand-more {
+  padding: 5px 12px;
+  font: 10.5px var(--mono);
+  color: var(--ink-link);
+}
+
+.change-file-truncated {
+  padding: 4px 12px 6px;
+  font: 10px var(--mono);
+  color: var(--ink-faint);
+}
+
+/* Binary or too large: a fixed note instead of a diff. */
+.change-file-note {
+  padding: 7px 12px;
+  font: 11px var(--mono);
+  color: var(--ink-faint);
+  border-top: 1px solid var(--rule-soft);
+  background: var(--surface-raised);
+}
+
+.changes-card-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--rule-soft);
+}
+
+.changes-expand-all {
+  font: 600 10.5px var(--mono);
+  color: var(--ink-link);
+}
+
+.changes-card-note {
+  font: 10px var(--mono);
+  color: var(--ink-faint);
+}
+
+/* «Ir al final» (jump-latest.js): a round raised control at the foot of the thread, centred
+   above the composer, in the chips' material. Its glyph is drawn like the window controls'. */
+.jump-latest {
+  grid-row: 3;
+  grid-column: 1;
+  align-self: end;
+  justify-self: center;
+  z-index: 4;
+  position: relative;
+  width: 30px;
+  height: 30px;
+  margin-bottom: 12px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--raised);
+  border: 1px solid var(--raised-edge);
+  border-radius: 50%;
+  box-shadow:
+    1px 2px 0 rgba(var(--shade-rgb), 0.16),
+    0 3px 10px rgba(var(--shade-rgb), 0.18),
+    inset 1px 1px 0 var(--highlight);
+  cursor: pointer;
+  animation: rise 0.2s ease-out both;
+  transition:
+    transform 0.08s ease-out,
+    filter 0.15s;
+}
+
+.jump-latest[hidden] {
+  display: none;
+}
+
+.jump-latest:hover {
+  filter: brightness(1.04);
+}
+
+.jump-latest:active {
+  transform: translateY(1px);
+  box-shadow:
+    0 1px 0 rgba(var(--shade-rgb), 0.16),
+    inset 1px 1px 2px rgba(var(--shade-deep-rgb), 0.3);
+}
+
+.jump-latest svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: var(--ink-label);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* New content arrived below while the reader was up the thread. */
+.jump-latest-dot {
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--focus);
+  border: 1.5px solid var(--dot-ring);
+}
+
+.jump-latest-dot[hidden] {
+  display: none;
+}
+
+/* ---------- the composer (design 1a) ---------- */
+
+/* The orb sits in the composer's left 136px, bottom-anchored like the canvas'; the balloon
+   takes the rest. */
+.composer {
+  position: relative;
+  /* The orb and the message box side by side, centred on each other; the box grows with
+     what is written and the orb stays on its centre line. Room below for the orb's state
+     pill and the context line. */
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  /* Even top and bottom, so the orb and the box sit in the bar's centre. The tall orb
+     already leaves room under the short box for the context line and the orb's state pill. */
+  padding: 16px 20px 16px 14px;
+  background: var(--composer);
+  border-top: 1px solid var(--composer-edge);
+  box-shadow: inset 0 1px 0 rgba(var(--highlight-rgb), 0.7);
+  animation: rise 0.4s ease-out 0.15s both;
+}
+
+.composer-orb {
+  position: relative;
+  z-index: 3;
+  flex: none;
+  width: 108px;
+  display: flex;
+  justify-content: center;
+}
+
+.orb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.orb--composer {
+  width: 104px;
+  height: 104px;
+}
+
+/* The message as a speech balloon, its tail pointing at the orb. */
+/* The message box; the context line hangs under it, out of the flow, so the orb centres on
+   the box itself at every height. */
+.composer-main {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.balloon {
+  position: relative;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 10px 8px 12px;
+  background: var(--input);
+  border: 1px solid var(--raised-edge);
+  border-radius: 14px;
+  box-shadow:
+    2px 2px 0 rgba(var(--shade-rgb), 0.14),
+    inset 0 1px 0 var(--highlight);
+  transition: box-shadow 0.15s ease-out;
+}
+
+
+.field-main {
+  min-width: 0;
+  display: flex;
+  /* Bottom-aligned: one line is centred because clip, text and «Enviar» are all 28 px; a
+     longer message grows upward and the controls stay on its last line. */
+  align-items: flex-end;
+  gap: 8px;
+  /* Keep the pill and the clip off the 14 px rounded corners. */
+  padding: 0 2px 2px;
+}
+
+.field-main .attach,
+.field-main .skills-button,
+.field-main .stop,
+.field-main .send-slot {
+  flex: none;
+}
+
+/* The message takes what the controls leave; never the whole row, or it slides under them. */
+.field-main textarea {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+}
+
+.field-main .attach-count {
+  flex: none;
+  align-self: center;
+}
+
+.field-main .attach-count:empty {
+  display: none;
+}
+
+.balloon textarea {
+  display: block;
+  /* Grows with the message up to 40 % of the window, then scrolls inside the box. */
+  max-height: 40vh;
+  resize: none;
+  border: 0;
+  outline: none;
+  /* One line (20 px) plus 4 px above and below matches the 28 px clip and «Enviar». */
+  padding: 4px 0;
+  background: transparent;
+  font: 13.5px/1.5 var(--sans);
+  color: var(--said-ink);
+  user-select: text;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.balloon textarea::placeholder {
+  color: var(--ink-faint); /* UX-04: the canvas' #9aa3b5 measured 2.36:1 */
+  opacity: 1;
+}
+
+.attach,
+.skills-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  /* Part of the message box, not a separate control: no ring, a muted icon that comes up
+     under the pointer or the keyboard. */
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: var(--ink-muted);
+  opacity: 0.75;
+  cursor: pointer;
+  transition:
+    opacity 0.12s,
+    background 0.12s,
+    color 0.12s;
+}
+
+.attach:hover,
+.skills-button:hover {
+  opacity: 1;
+  color: var(--ink);
+  background: rgba(var(--accent-rgb), 0.12);
+}
+
+.attach:focus-visible,
+.skills-button:focus-visible {
+  opacity: 1;
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.attach svg,
+.skills-button svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.attach:active,
+.skills-button:active {
+  background: rgba(var(--accent-rgb), 0.2);
+}
+
+/* «Reiniciar contexto» (design 1a): a small ↻ icon button beside the context ring in the
+   status line. Icon only, the label is its tooltip. Disabled while a turn or rewind runs. */
+.reset-context {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  background: none;
+  border: 0;
+  border-radius: 4px;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition:
+    transform 0.08s,
+    background 0.12s,
+    color 0.12s;
+}
+
+.reset-context svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+.reset-context:hover {
+  background: var(--reset-hover);
+  color: var(--ink);
+}
+
+.reset-context:active {
+  transform: translate(1px, 1px);
+}
+
+.reset-context:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.reset-context[hidden] {
+  display: none;
+}
+
+/* «■ Detener»: the red pill, the only control that stops anything. */
+.stop {
+  flex: none;
+  min-height: 24px;
+  padding: 6px 18px;
+  font: 600 11.5px var(--sans);
+  color: var(--red-strong);
+  background: var(--stop-face);
+  border: 1px solid var(--reject-edge);
+  border-radius: 999px;
+  box-shadow:
+    0 2px 4px rgba(120, 40, 30, 0.22),
+    inset 0 1px 0 rgba(var(--gloss-rgb), 0.9);
+  cursor: pointer;
+  transition:
+    transform 0.08s ease-out,
+    filter 0.15s;
+  animation: chipIn 0.25s var(--ease-open) both;
+}
+
+.stop:hover {
+  filter: brightness(1.04);
+}
+
+.stop:active {
+  transform: translateY(1px);
+  filter: brightness(0.94);
+}
+
+/* «Enviar ↵»: the blue pill, shown only while the message has text. The slot's column grows
+   from 0fr to 1fr while the pill springs in from the right, on the canvas' two curves. */
+/* The button keeps its place; it fades and springs in, never clipped by a box so the white
+   never shows over it mid-reveal (the person, 2026-10-25). */
+.send-slot {
+  flex: none;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.send-clip {
+  display: flex;
+}
+
+.send-motion {
+  flex: none;
+  display: flex;
+  opacity: 0;
+  transform: scale(0.85);
+  transform-origin: right center;
+  pointer-events: none;
+  transition:
+    opacity 0.18s ease-out,
+    transform 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.4);
+}
+
+.send-slot[data-shown='true'] .send-motion {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+.send {
+  flex: none;
+  min-height: 24px;
+  padding: 6px 20px;
+  font: 600 11.5px var(--sans);
+  color: var(--ink-heading);
+  background: var(--send-face);
+  border: 1px solid var(--send-edge);
+  border-radius: 999px;
+  box-shadow:
+    0 2px 4px rgba(45, 70, 120, 0.25),
+    inset 0 1px 0 rgba(var(--gloss-rgb), 0.95);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    transform 0.08s ease-out,
+    filter 0.15s;
+}
+
+.send:hover {
+  filter: brightness(1.05);
+}
+
+.send:active {
+  transform: translateY(1px);
+  filter: brightness(0.94);
+}
+
+.send:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* Read by a screen reader, never drawn (`.thread-status`). */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* The context ring in a status line under the message, at the right (replaces the header
+   «contexto %» chip), as in Claude Code: a ring that fills with how full the model's window
+   is, the percent beside it. Blue as the design's working colour, amber from 80 %, red past
+   the window. */
+.composer-status {
+  position: absolute;
+  top: calc(100% + 3px);
+  right: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.context-ring {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 6px;
+  background: none;
+  border: 0;
+  border-radius: 4px;
+  cursor: default;
+  color: var(--ink-soft);
+  font: 10.5px var(--mono);
+  font-variant-numeric: tabular-nums;
+  transition: background 0.12s;
+}
+
+.context-ring[hidden] {
+  display: none;
+}
+
+/* The automatic mode's switch, under the message at the left (auto-mode.js): quiet text
+   while it asks, the accent blue (a switch that is on) while it answers alone. */
+.composer-mode {
+  position: absolute;
+  top: calc(100% + 3px);
+  left: 6px;
+  display: flex;
+  align-items: center;
+}
+
+.auto-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 6px;
+  background: none;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--ink-muted);
+  font: 10.5px var(--mono);
+  transition:
+    background 0.12s,
+    color 0.12s;
+}
+
+.auto-mode[hidden] {
+  display: none;
+}
+
+.auto-mode:hover {
+  background: rgba(var(--accent-rgb), 0.08);
+}
+
+.auto-mode:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.auto-mode svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.auto-mode[data-on='true'] {
+  color: var(--accent);
+}
+
+.context-ring:hover {
+  background: rgba(var(--accent-rgb), 0.08);
+}
+
+.context-ring:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.context-ring svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  transform: rotate(-90deg);
+}
+
+.context-ring-track {
+  fill: none;
+  /* Dark enough to read on the composer's grey (#ccd4e2). */
+  stroke: var(--ring-track);
+  stroke-width: 3;
+}
+
+.context-ring-fill {
+  fill: none;
+  stroke: var(--ring-fill);
+  stroke-width: 3;
+  stroke-linecap: round;
+  transition:
+    stroke-dashoffset 0.3s ease-out,
+    stroke 0.2s;
+}
+
+.context-ring-pct {
+  min-width: 4ch;
+  text-align: right;
+}
+
+.context-ring.is-near .context-ring-fill {
+  stroke: var(--amber);
+}
+
+.context-ring.is-near .context-ring-pct {
+  color: var(--near-ink);
+}
+
+.context-ring.is-over .context-ring-fill {
+  stroke: #d0584b;
+}
+
+.context-ring.is-over .context-ring-pct {
+  color: var(--over-ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .context-ring-fill {
+    transition: none;
+  }
+}
+
+/* ---------- browser tabs (browser-view.js, design 2026-11-05) ---------- */
+
+/* The page is a view main draws over `.browser-page`, so the pane does not slide in: the
+   rect sent with it must be where the area ends up. */
+.viewer.viewer--browser {
+  animation: none;
+}
+
+.file-tab-icon {
+  width: 12px;
+  height: 12px;
+  flex: none;
+}
+
+/* A page with no favicon the window may draw: a small globe in the focus blue. */
+.file-tab-badge--browser {
+  width: 9px;
+  height: 9px;
+  box-sizing: border-box;
+  border: 1.5px solid var(--focus);
+  border-radius: 50%;
+  background: linear-gradient(var(--focus), var(--focus)) center / 100% 1px no-repeat;
+}
+
+/* Loading: a dot that pulses beside the name. */
+.file-tab-loading {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: dotPulse 1s ease-in-out infinite;
+}
+
+.browser {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.browser-bar {
+  gap: 4px;
+  padding: 0 8px;
+}
+
+.browser-nav {
+  width: 24px;
+  height: 20px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font: 600 12px/1 var(--sans);
+  color: var(--ink);
+  background: var(--raised);
+  border: 1px solid var(--raised-edge);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.browser-nav:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.browser-nav:disabled {
+  color: var(--glyph);
+  cursor: default;
+}
+
+.browser-address {
+  flex: 1;
+  min-width: 0;
+  height: 20px;
+  box-sizing: border-box;
+  margin-left: 4px;
+  padding: 0 8px;
+  font: 11px var(--mono);
+  color: var(--ink-strong);
+  background: var(--input);
+  border: 1px solid var(--edge-soft);
+  border-radius: 4px;
+  user-select: text;
+}
+
+/* A text field draws no ring (its caret says where focus is); the edge turns blue. */
+.browser-address:focus-visible {
+  outline: none;
+  border-color: var(--focus);
+}
+
+.browser-address::placeholder {
+  color: var(--ink-faint);
+}
+
+/* Main's answer to an address it would not open, under the bar until the next edit, and
+   why the tab's page did not load, there until the next navigation. */
+.browser-error,
+.browser-failed {
+  flex: none;
+  padding: 5px 12px;
+  background: var(--red-ground);
+  border-bottom: 1px solid var(--red-border);
+  font: 11.5px var(--sans);
+  color: var(--red);
+}
+
+/* Where main draws the page. Its ground shows only while the page is hidden (a menu is
+   open) or has not painted yet. */
+.browser-page {
+  flex: 1;
+  min-height: 0;
+  background: var(--surface);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .file-tab-loading {
+    animation: none;
+  }
+}

@@ -1,0 +1,62 @@
+/* The design's fonts, bundled instead of fetched (handoff README: «fuentes empaquetadas
+   localmente: Open Sans + IBM Plex Mono»). The pages' CSP loads nothing remote.
+
+   Open Sans 3.003 (SIL OFL 1.1, fonts/OFL.txt): the weights the design uses (400, 600,
+   700), converted to WOFF2 unchanged. The design also asks for 500 in two places. There is
+   no 500 face, so the browser's weight matching picks 400, as it did on a system without
+   the web font.
+
+   IBM Plex Mono (SIL OFL 1.1, fonts/OFL-IBMPlexMono.txt): the weights the design uses for
+   paths, commands and labels (400, 500, 600), as Google Fonts serves them (v20, latin
+   subset, WOFF2), downloaded 2026-09-29 with the person's approval. SHA-256:
+   Regular 08949f728dc52d528e69b1667d15c89a5686a4ee9a296ff90983985f99c380f7,
+   Medium 01d285447409c8a588692162439a038b8cbd7871309ee20267b0d2d91c6e8e22,
+   SemiBold 0d1f0b8d0722224e32e9f28261bdc86c79115be73444ae5eceb73976a1bcdf83. */
+
+@font-face {
+  font-family: 'Open Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('fonts/OpenSans-Regular.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Open Sans';
+  font-style: normal;
+  font-weight: 600;
+  font-display: block;
+  src: url('fonts/OpenSans-SemiBold.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Open Sans';
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+  src: url('fonts/OpenSans-Bold.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('fonts/IBMPlexMono-Regular.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: block;
+  src: url('fonts/IBMPlexMono-Medium.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 600;
+  font-display: block;
+  src: url('fonts/IBMPlexMono-SemiBold.woff2') format('woff2');
+}

@@ -1,0 +1,5 @@
+#!/bin/sh
+# Repository invariants. Install once with:  git config core.hooksPath .githooks
+set -e
+uv run python -m cogito.dev.check_layers
+uv run python -m cogito.dev.check_tree

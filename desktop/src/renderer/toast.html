@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <!-- Same rule as the main window: nothing remote, nothing inline. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self';"
+    />
+    <title>COGITO</title>
+    <link rel="stylesheet" href="fonts.css" />
+    <link rel="stylesheet" href="toast.css" />
+  </head>
+  <body>
+    <!-- Design 2d's notification («Notificación de COGITO»): a strip in the notice's colour,
+         then the message and its buttons. -->
+    <div class="toast-card">
+      <div class="toast-head">
+        <span class="toast-dot"></span>
+        <span class="toast-app">COGITO</span>
+        <span class="toast-when"></span>
+        <button class="toast-close" type="button" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="toast-row">
+        <div class="toast-main">
+          <div class="toast-title"></div>
+          <div class="toast-body"></div>
+        </div>
+        <div class="toast-actions"></div>
+      </div>
+    </div>
+    <script type="module" src="toast.js"></script>
+  </body>
+</html>

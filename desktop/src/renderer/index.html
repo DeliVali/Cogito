@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <!-- Nothing remote is ever loaded, and this policy enforces it. The fonts are the
+         app's own files (fonts.css). -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; frame-src cogito-file:;"
+    />
+    <title>COGITO</title>
+    <link rel="stylesheet" href="fonts.css" />
+    <!-- xterm.js 6.0.0 (MIT, vendor/xterm/LICENSE-xterm) for the terminal tabs,
+         first so the app's own sheets override it. -->
+    <link rel="stylesheet" href="vendor/xterm/xterm.css" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="components.css" />
+    <link rel="stylesheet" href="cards.css" />
+    <link rel="stylesheet" href="update.css" />
+    <link rel="stylesheet" href="projects.css" />
+    <link rel="stylesheet" href="welcome.css" />
+    <link rel="stylesheet" href="attach.css" />
+    <link rel="stylesheet" href="skills.css" />
+    <link rel="stylesheet" href="explorer.css" />
+  </head>
+  <body>
+    <!-- Design 1a's title bar: the striped OS 9 strip, the glass sphere and «COGITO — {proyecto}».
+         The page draws its own frame, so the three window controls are here, in OS 9 boxes
+         with one glyph each, out of the Tab order as a native title bar's are (still clickable and
+         labelled). `.titlebar[data-platform]` places them as the platform does:
+         left on macOS, right on Windows and Linux. -->
+    <div class="titlebar">
+      <span class="wordmark"><span class="sphere sphere--title" aria-hidden="true"></span><span class="wordmark-text">COGITO</span></span>
+      <div class="window-controls">
+        <button class="chrome chrome--close" type="button" tabindex="-1" aria-label="Cerrar" data-sfx="click">
+          <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2.3 2.3l5.4 5.4M7.7 2.3l-5.4 5.4" /></svg>
+        </button>
+        <button class="chrome chrome--min" type="button" tabindex="-1" aria-label="Minimizar" data-sfx="click">
+          <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 5h6" /></svg>
+        </button>
+        <button class="chrome chrome--max" type="button" tabindex="-1" aria-label="Maximizar" data-sfx="click">
+          <svg class="glyph-maximize" viewBox="0 0 10 10" aria-hidden="true"><rect x="2" y="2" width="6" height="6" /></svg>
+          <svg class="glyph-restore" viewBox="0 0 10 10" aria-hidden="true"><path d="M3.5 3.5V1.5h5v5h-2M1.5 3.5h5v5h-5z" /></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Design 1a's bar: project and branch on the left, model on the right. CSS draws the
+         project chip's sphere and ▾, so its text is only the name. -->
+    <div class="contextbar">
+      <!-- Design 1a: opens and closes the file explorer (explorer.js), left of the project. -->
+      <button class="explorer-toggle" type="button" aria-pressed="false" hidden
+        ><span class="explorer-toggle-glyph" aria-hidden="true"><span></span><span></span></span
+      ></button>
+      <button class="chip project" type="button" title="El proyecto de esta conversación" aria-haspopup="menu"><span class="project-chip-name">…</span></button>
+      <span class="chip branch" title="La rama de git actual" hidden></span>
+      <span class="contextbar-spacer"></span>
+      <button class="chip graph-chip" type="button" hidden></button>
+      <!-- Design 1a: «⧉ N conexiones», the MCP servers (connections-menu.js). -->
+      <button class="chip connections-chip" type="button" hidden></button>
+      <button class="chip model" type="button" aria-haspopup="menu"
+        ><span class="pip"></span><span class="model-service" hidden></span><span class="model-name">…</span
+      ></button>
+    </div>
+
+    <!-- Design 1a: the file explorer, a panel at the left of the thread (explorer.js). -->
+    <aside class="explorer" hidden></aside>
+    <!-- The thread, with the viewer's tabs above it and the open file, terminal or browser tab
+         over it (viewer.js). A browser tab's page is a view main draws over its pane. -->
+    <div class="thread-area">
+      <div class="file-tabs" hidden></div>
+      <div class="thread-stage">
+        <main class="transcript soft-scroll">
+          <div class="column" role="log" aria-live="polite"></div>
+        </main>
+        <section class="viewer" hidden></section>
+      </div>
+    </div>
+    <!-- «Ir al final» (jump-latest.js): above the composer while the reader is scrolled up;
+         its dot says something new arrived below. -->
+    <button class="jump-latest" type="button" hidden aria-label="Ir al final" title="Ir al final" data-sfx="click">
+      <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M5 1.6v6.2M2.2 5.2L5 8l2.8-2.8" /></svg>
+      <span class="jump-latest-dot" hidden></span>
+    </button>
+    <!-- One short sentence for a screen reader when the whole thread changes at once (a
+         redo bringing back a rewound conversation), so the log is not read out again. -->
+    <div class="thread-status visually-hidden" role="status"></div>
+    <!-- Design 1a's shimmer over the thread while the project's history is being read. -->
+    <div class="thread-skeleton" aria-hidden="true" hidden>
+      <div class="thread-skeleton-column">
+        <span class="skel skel--bubble"></span><span class="skel skel--line"></span><span class="skel skel--row"></span
+        ><span class="skel skel--block"></span><span class="skel skel--short"></span>
+      </div>
+    </div>
+
+    <!-- Design 1a's composer: the orb on the left, and the
+         message box beside it (no tail toward the orb, the person's choice of 2026-10-25). «Enviar» appears only when
+         there is text; «■ Detener» only while there is something to stop. -->
+    <div class="composer">
+      <div class="composer-orb">
+        <span class="orb orb--composer"></span>
+      </div>
+      <div class="composer-main">
+        <div class="field balloon">
+          <!-- Design 1n: what is attached to the message, above it (attach-tray.js). -->
+          <div class="attach-chips" hidden></div>
+          <!-- The Agent Skills activated for the next message, above it (skills-tray.js). -->
+          <div class="attach-chips skill-chips" hidden></div>
+          <!-- One row, as in Claude Code: the paperclip (an icon only, design 1n), the message,
+               then the attachment count, «Enviar ↵» and «■ Detener». «Detener» comes last so
+               it sits at the edge: the empty «Enviar» slot keeps its width so the pill never
+               shifts the row as it springs in. The message grows with what is written and
+               then scrolls; clip and «Enviar» stay on its last line. -->
+          <div class="field-main">
+            <button class="attach" type="button" data-sfx="click" aria-label="Adjuntar archivos" title="Adjuntar archivos"
+              ><svg viewBox="0 0 24 24" aria-hidden="true"
+                ><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"
+              /></svg
+            ></button>
+            <!-- The skills picker (skills-tray.js): a «/» glyph beside the clip (the
+                 slash-command convention), icon only, label in the tooltip. Hidden until a
+                 project is open, like «Reiniciar contexto». -->
+            <button class="skills-button" type="button" data-sfx="click" aria-label="Habilidades" title="Habilidades" hidden
+              ><svg viewBox="0 0 24 24" aria-hidden="true"
+                ><path d="M15 5 L9 19"
+              /></svg
+            ></button>
+            <!-- How much the model thinks (thinking-control.js): a bolt beside the skills
+                 picker, its look the level (outline, struck, filled, glowing). Hidden for a
+                 model whose host takes no thinking budget. -->
+            <button class="thinking-button" type="button" data-sfx="click" data-level="normal" hidden
+              ><svg viewBox="0 0 24 24" aria-hidden="true"
+                ><path class="thinking-bolt" d="M13 2.5 4.5 13.5h6.5l-1 8 8.5-11h-6.5l1-8z"
+                /><path class="thinking-slash" d="M4 4 20 20"
+              /></svg
+            ></button>
+            <textarea rows="1" spellcheck="false" placeholder="Escribe un mensaje…" aria-label="Mensaje"></textarea>
+            <span class="attach-count" aria-live="polite"></span>
+            <span class="send-slot" data-shown="false">
+              <span class="send-clip"><span class="send-motion"
+                ><button class="send" type="button" tabindex="-1" aria-hidden="true">Enviar ↵</button></span
+              ></span>
+            </span>
+            <button class="stop" type="button" hidden>■ Detener</button>
+          </div>
+        </div>
+        <div class="composer-status">
+          <!-- "Reiniciar contexto" (design 1a): a fresh conversation in this project, beside the
+               context ring. Icon only; the label is its tooltip. Confirms first (chat.js). -->
+          <button class="reset-context" type="button" data-sfx="click" hidden>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6" fill="none" stroke="currentColor"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <!-- How full the model's context window is: a ring that fills, in a status line under
+               the message, at the right, as in Claude Code. Hidden until the core reports a
+               context status. -->
+          <button class="context-ring" type="button" hidden aria-label="Contexto">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle class="context-ring-track" cx="12" cy="12" r="9"></circle>
+              <circle class="context-ring-fill" cx="12" cy="12" r="9"></circle>
+            </svg>
+            <span class="context-ring-pct"></span>
+          </button>
+      </div>
+        <!-- The composer's automatic mode (auto-mode.js): under the message, at the left, as
+             Claude Code shows its permission mode. Hidden until a project is open. -->
+        <div class="composer-mode">
+          <button class="auto-mode" type="button" data-on="false" aria-pressed="false" hidden
+            ><svg viewBox="0 0 24 24" aria-hidden="true"
+              ><path d="M5 6.5 10.5 12 5 17.5M12.5 6.5 18 12l-5.5 5.5"
+            /></svg
+            ><span class="auto-mode-label">Pedir permiso</span
+          ></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Classic (non-module) script, loaded synchronously before chat.js's module runs, so
+         <liquid-orb> is already registered when orb.js creates one. -->
+    <script src="liquid-orb.js"></script>
+    <script type="module" src="chat.js"></script>
+    <script type="module" src="update-ui.js"></script>
+  </body>
+</html>

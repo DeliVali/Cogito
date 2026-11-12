@@ -1,0 +1,706 @@
+/*
+ * Automatic updates (design 3a/3b): the chip beside the model, the ready menu, the amber
+ * security strip, the «Actualizando a X» screen, the package-manager card, and the thread
+ * separator. Colours, sizes, radii and timings come from the design canvas
+ * (`COGITO v2.dc.html`, section t3). Every class here starts with `update-`.
+ */
+
+/* The grid rows that make room for the strip are in styles.css (`body.has-update-strip`). */
+
+/* The colours this file draws that the base palette (styles.css) has no role for. The light
+   values are the design's; the dark ones keep each part's hue on graphite, and every text
+   colour below clears 4.5:1 on the ground it sits on (figures beside each). */
+:root {
+  --update-faint: #8b93a3;
+  --update-menu-head: linear-gradient(#f6f8fc, #e2e8f2);
+  --update-menu-rgb: 240, 245, 252;
+  --update-chip-rgb: 244, 247, 251;
+  --update-chip-ready: linear-gradient(#eef4fd, #cbdaf1);
+  --update-chip-pressed: linear-gradient(#cbdaf1, #b3c8ea);
+  --update-chip-ready-edge: #6e8fc4;
+  --update-failed-ground: #fbeeec;
+  --update-failed-edge: #c98b82;
+  --update-card-ground: linear-gradient(#fdfeff, #eef2f8);
+  --update-card-edge: #9aa3b5;
+  --update-blue-strip: linear-gradient(#eef4fd 0%, #d5e2f5 50%, #c6d7f0 51%, #dfe9f8 100%);
+  --update-blue-strip-edge: #8fa9d4;
+  --update-amber-strip: linear-gradient(#fcf3d4 0%, #f3e2a4 50%, #eed68a 51%, #f6e6b0 100%);
+  --update-amber-ink: #4a390f;
+  --update-amber-button: linear-gradient(#fffaf0, #f0dca0);
+  --update-amber-button-edge: #b08a1e;
+  --update-amber-shadow: 0 1px 2px rgba(140, 110, 20, 0.2);
+  --update-primary-shadow: 0 2px 4px rgba(40, 70, 130, 0.22);
+  --update-primary-emboss: 0 1px 0 rgba(255, 255, 255, 0.5);
+  --update-kept: #a4473b;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --update-faint: var(--ink-faint); /* 4.59:1 on --raised-top, more on the menu */
+    --update-menu-head: var(--raised);
+    --update-menu-rgb: 35, 41, 51;
+    --update-chip-rgb: 58, 66, 80;
+    --update-chip-ready: linear-gradient(#3e5684, #304670); /* --ink-heading 6.3:1 */
+    --update-chip-pressed: linear-gradient(#304670, #2a3e64);
+    --update-chip-ready-edge: var(--accent-edge);
+    --update-failed-ground: var(--red-ground); /* --red 7.25:1 */
+    --update-failed-edge: var(--red-border);
+    --update-card-ground: linear-gradient(var(--surface-raised), var(--panel));
+    --update-card-edge: var(--edge-soft);
+    --update-blue-strip: linear-gradient(#3f5276 0%, #34466a 50%, #2e3f61 51%, #374a6e 100%); /* --ink-heading 6.7:1 */
+    --update-blue-strip-edge: var(--blue-border);
+    --update-amber-strip: linear-gradient(#4a3f1f 0%, #3f3519 50%, #3a3017 51%, #43391c 100%); /* 7.2:1 */
+    --update-amber-ink: var(--amber-ink);
+    --update-amber-button: linear-gradient(#5a4c24, #463b1c); /* --amber-ink 5.8:1 */
+    --update-amber-button-edge: #8a6d1a;
+    --update-amber-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+    --update-primary-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+    --update-primary-emboss: 0 -1px 0 rgba(0, 0, 0, 0.35);
+    --update-kept: var(--red); /* 8.3:1 on --transcript */
+  }
+}
+
+.update-slot {
+  display: flex;
+  align-items: center;
+  /* Gives way to the model's name only after the context store's chip has: its label
+     ellipsizes down to `.update-chip`'s minimum. An empty slot takes no room. */
+  flex: 0 2 auto;
+  min-width: 0;
+}
+
+.update-slot:has(> .update-chip) {
+  min-width: 96px;
+}
+
+/* ---------- the chip ---------- */
+
+.update-chip {
+  /* A block with inline children, not a flex row, so the label can end in «…» when the
+     bar is narrow (a flex row cannot ellipsize its text). */
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 4px 11px;
+  border-radius: 999px;
+  font: 11px var(--mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  animation: update-swap 0.25s ease-out both;
+}
+
+.update-chip > .update-chip-dot,
+.update-chip > .update-chip-progress {
+  display: inline-block;
+  margin-right: 7px;
+  vertical-align: middle;
+}
+
+button.update-chip {
+  cursor: pointer;
+  transition: transform 0.08s ease-out, filter 0.15s;
+}
+
+button.update-chip:hover {
+  filter: brightness(1.04);
+}
+
+button.update-chip:active {
+  transform: translate(1px, 1px);
+}
+
+/* Pressed while its menu is open (the design's `upChipBg`). */
+.update-chip--ready.is-open {
+  background: var(--update-chip-pressed);
+}
+
+.update-chip--downloading {
+  background: rgba(var(--update-chip-rgb), 0.7);
+  border: 1px solid var(--edge-soft);
+  color: var(--ink-soft);
+}
+
+.update-chip-progress {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 50%;
+  background: conic-gradient(var(--accent) 0 var(--update-deg, 0deg), var(--raised-bottom) var(--update-deg, 0deg) 360deg);
+}
+
+.update-chip--ready {
+  background: var(--update-chip-ready);
+  border: 1px solid var(--update-chip-ready-edge);
+  box-shadow:
+    1px 1px 0 rgba(var(--shade-rgb), 0.16),
+    inset 0 1px 0 rgba(var(--highlight-rgb), 0.9);
+  font-weight: 600;
+  color: var(--ink-heading);
+  animation: update-chip-in 0.32s cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
+}
+
+.update-chip--ready .update-chip-dot {
+  width: 7px;
+  height: 7px;
+  background: var(--accent);
+  box-shadow: 0 0 6px rgba(110, 147, 210, 0.9);
+  animation: update-pulse 1.8s ease-in-out infinite;
+}
+
+.update-chip--deferred {
+  background: rgba(var(--update-chip-rgb), 0.7);
+  border: 1px dashed var(--raised-edge);
+  color: var(--ink-soft);
+}
+
+.update-chip--deferred .update-chip-dot,
+.update-chip--package-manager .update-chip-dot {
+  width: 6px;
+  height: 6px;
+  border: 1.5px solid var(--accent);
+}
+
+.update-chip--failed {
+  background: var(--update-failed-ground);
+  border: 1px solid var(--update-failed-edge);
+  color: var(--red);
+}
+
+.update-chip--failed .update-chip-dot {
+  width: 7px;
+  height: 7px;
+  background: #d0584b;
+}
+
+.update-chip--package-manager {
+  background: rgba(var(--update-chip-rgb), 0.8);
+  border: 1px solid var(--raised-edge);
+  color: var(--ink);
+}
+
+.update-chip-dot {
+  flex: none;
+  box-sizing: border-box;
+  border-radius: 50%;
+}
+
+/* ---------- the glass sphere ---------- */
+
+.update-sphere {
+  position: relative;
+  flex: none;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 27%, #ffffff 0%, #e4eefa 26%, #bcd0ec 58%, #8aa6d2 86%, #6582b4 100%);
+  box-shadow:
+    inset -1.5px -2.6px 4px rgba(60, 85, 130, 0.35),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.7),
+    0 1px 2.6px rgba(30, 50, 90, 0.28);
+}
+
+.update-sphere-shine {
+  position: absolute;
+  left: 18%;
+  top: 10%;
+  width: 42%;
+  height: 26%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 50% 40%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0) 70%);
+  transform: rotate(-28deg);
+}
+
+.update-sphere--menu {
+  width: 26px;
+  height: 26px;
+}
+
+.update-sphere--large {
+  width: 72px;
+  height: 72px;
+  box-shadow:
+    inset -4.3px -7.2px 11.5px rgba(60, 85, 130, 0.35),
+    inset 0 0 0 1.4px rgba(255, 255, 255, 0.7),
+    0 3px 7px rgba(30, 50, 90, 0.28);
+  animation: update-pulse 1.6s ease-in-out infinite;
+}
+
+/* ---------- menu and card (popovers under the chip) ---------- */
+
+.update-menu,
+.update-card {
+  position: fixed;
+  z-index: 30;
+  overflow: hidden;
+  transform-origin: top right;
+  animation: update-menu-in 0.17s cubic-bezier(0.2, 0.9, 0.3, 1.2) backwards;
+  transition:
+    opacity 0.14s ease-in,
+    transform 0.14s ease-in;
+}
+
+.update-menu.is-closing,
+.update-card.is-closing {
+  opacity: 0;
+  transform: scale(0.96);
+}
+
+.update-menu {
+  width: 320px;
+  background: rgba(var(--update-menu-rgb), 0.94);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--edge-strong);
+  border-radius: 6px;
+  box-shadow:
+    3px 3px 0 rgba(var(--shade-rgb), 0.2),
+    0 12px 28px rgba(var(--shade-deep-rgb), 0.2);
+}
+
+.update-menu-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 13px;
+  background: var(--update-menu-head);
+  border-bottom: 1px solid var(--divider);
+}
+
+.update-menu-titles {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.update-menu-title {
+  font: 600 13px var(--sans);
+  color: var(--ink-strong);
+}
+
+.update-menu-installed,
+.update-card-installed {
+  font: 10.5px var(--mono);
+  color: var(--update-faint);
+}
+
+.update-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 13px 11px;
+  border-bottom: 1px solid var(--divider);
+}
+
+.update-notes-heading {
+  font: 10px var(--mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--update-faint);
+}
+
+.update-notes-heading:not(:first-child) {
+  margin-top: 4px;
+}
+
+.update-notes-item {
+  display: flex;
+  gap: 8px;
+  font: 12px/1.45 var(--sans);
+  color: var(--ink);
+}
+
+.update-notes-bullet {
+  color: var(--accent);
+}
+
+.update-menu-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 13px 12px;
+}
+
+.update-spacer {
+  flex: 1;
+}
+
+.update-pill {
+  padding: 5px 13px;
+  font: 600 11.5px var(--sans);
+  color: var(--ink);
+  background: var(--raised);
+  border: 1px solid var(--raised-edge);
+  border-radius: 999px;
+  box-shadow:
+    1px 1px 0 rgba(var(--shade-rgb), 0.16),
+    inset 0 1px 0 var(--highlight);
+  cursor: pointer;
+  transition: transform 0.08s ease-out, filter 0.15s;
+}
+
+.update-pill:active {
+  transform: translateY(1px);
+}
+
+.update-pill--primary {
+  padding: 5px 15px;
+  color: var(--primary-ink);
+  background: var(--primary);
+  border-color: var(--accent-edge);
+  box-shadow:
+    var(--update-primary-shadow),
+    inset 0 1px 0 rgba(var(--highlight-rgb), 0.9);
+  text-shadow: var(--update-primary-emboss);
+}
+
+.update-pill--primary:hover {
+  filter: brightness(1.04);
+}
+
+.update-pill--primary:active {
+  filter: brightness(0.93);
+}
+
+/* The package-manager card. */
+.update-card {
+  width: 380px;
+  display: flex;
+  flex-direction: column;
+  background: var(--update-card-ground);
+  border: 1px solid var(--update-card-edge);
+  border-radius: 8px;
+  box-shadow:
+    2px 2px 0 rgba(var(--shade-rgb), 0.12),
+    inset 0 1px 0 var(--highlight);
+}
+
+.update-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 13px;
+  background: var(--update-blue-strip);
+  border-bottom: 1px solid var(--update-blue-strip-edge);
+  box-shadow: inset 0 1px 0 rgba(var(--highlight-rgb), 0.8);
+  font: 600 11.5px var(--mono);
+  color: var(--ink-heading);
+}
+
+.update-card-dot {
+  width: 9px;
+  height: 9px;
+  flex: none;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #e4eefa, var(--accent));
+  box-shadow: 0 0 6px rgba(110, 147, 210, 0.8);
+}
+
+.update-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 11px 13px 12px;
+}
+
+.update-card-text {
+  font: 12.5px/1.5 var(--sans);
+  color: var(--ink);
+}
+
+.update-card-command {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 6px 6px 10px;
+  background: var(--surface-alt);
+  border: 1px solid var(--edge-soft);
+  border-radius: 5px;
+  box-shadow: inset 1px 1px 2px rgba(var(--shade-deep-rgb), 0.1);
+}
+
+.update-card-command-text {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font: 11.5px/1.5 var(--mono);
+  color: var(--ink-strong);
+  user-select: text;
+}
+
+.update-card-copy {
+  flex: none;
+  padding: 2px 8px;
+  font: 600 10.5px var(--sans);
+  color: var(--ink);
+  background: var(--raised);
+  border: 1px solid var(--raised-edge);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.update-card-copy:active {
+  transform: translateY(1px);
+}
+
+.update-card-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.update-card-installed {
+  flex: 1;
+}
+
+/* ---------- the security strip ---------- */
+
+.update-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: var(--update-amber-strip);
+  border-bottom: 1px solid var(--amber);
+  box-shadow: inset 0 1px 0 rgba(var(--highlight-rgb), 0.8);
+  animation: update-banner-in 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.1) both;
+}
+
+.update-strip-dot {
+  width: 9px;
+  height: 9px;
+  flex: none;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff3c4, #c9a227);
+  box-shadow: 0 0 6px rgba(201, 162, 39, 0.8);
+}
+
+.update-strip-text {
+  flex: 1;
+  font: 12px/1.4 var(--sans);
+  color: var(--update-amber-ink);
+}
+
+.update-strip-title {
+  font-weight: 700;
+}
+
+.update-strip-button {
+  flex: none;
+  padding: 3px 12px;
+  font: 600 11px var(--sans);
+  color: var(--update-amber-ink);
+  background: var(--update-amber-button);
+  border: 1px solid var(--update-amber-button-edge);
+  border-radius: 999px;
+  box-shadow:
+    var(--update-amber-shadow),
+    inset 0 1px 0 var(--highlight);
+  cursor: pointer;
+  transition: transform 0.08s ease-out, filter 0.15s;
+}
+
+.update-strip-button:hover {
+  filter: brightness(1.04);
+}
+
+.update-strip-button:active {
+  transform: translateY(1px);
+}
+
+/* ---------- «Actualizando a X» ---------- */
+
+.update-restarting {
+  position: fixed;
+  z-index: 40;
+  inset: 53px 0 0 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background: var(--transcript);
+  animation: update-fade-in 0.25s ease-out both;
+}
+
+.update-restarting-label {
+  font: 600 13px var(--sans);
+  color: var(--ink-strong);
+}
+
+.update-restarting-bar {
+  width: 220px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--raised-bottom);
+  box-shadow: inset 1px 1px 2px rgba(var(--shade-deep-rgb), 0.15);
+  overflow: hidden;
+}
+
+/* Indeterminate on purpose. The restart reports no progress, so a fixed-duration fill
+   would show a percentage that does not exist; a sliding segment only says "working". */
+.update-restarting-fill {
+  display: block;
+  height: 100%;
+  width: 40%;
+  border-radius: 3px;
+  background: linear-gradient(#a9c1ea, var(--accent));
+  animation: update-fill-indeterminate 1.1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* ---------- the thread separator ---------- */
+
+.update-separator {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: update-rise 0.4s ease-out 0.25s both;
+}
+
+.update-separator-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.update-separator-rule {
+  flex: 1;
+  height: 1px;
+  background: var(--edge-soft);
+}
+
+.update-separator-label {
+  font: 10px var(--mono);
+  letter-spacing: 0.15em;
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+.update-separator--kept .update-separator-label {
+  color: var(--update-kept);
+}
+
+.update-separator-toggle {
+  align-self: center;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 9px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  font: 10.5px var(--mono);
+  color: var(--ink-muted);
+  cursor: pointer;
+  transition:
+    background 0.12s,
+    color 0.12s;
+}
+
+.update-separator-toggle:hover {
+  background: var(--inline-code);
+  color: var(--ink);
+}
+
+.update-separator-arrow {
+  display: inline-block;
+  font-size: 8px;
+  transition: transform 0.2s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+
+.update-separator.is-open .update-separator-arrow {
+  transform: rotate(90deg);
+}
+
+.update-separator-fold {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.24s cubic-bezier(0.3, 0.8, 0.3, 1);
+}
+
+.update-separator.is-open .update-separator-fold {
+  grid-template-rows: 1fr;
+}
+
+.update-separator-fold-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.update-separator .update-notes {
+  width: 360px;
+  max-width: 100%;
+  margin: 0 auto;
+  gap: 5px;
+  padding: 10px 14px;
+  border: 1px solid var(--edge-soft);
+  border-radius: 7px;
+  background: var(--list-ground);
+  box-shadow: var(--shadow);
+  opacity: 0;
+  transition: opacity 0.2s ease-out;
+}
+
+.update-separator.is-open .update-notes {
+  opacity: 1;
+}
+
+/* ---------- motion ---------- */
+
+@keyframes update-swap {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+}
+
+@keyframes update-chip-in {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+}
+
+@keyframes update-menu-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+
+@keyframes update-banner-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes update-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes update-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes update-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@keyframes update-fill-indeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(250%);
+  }
+}

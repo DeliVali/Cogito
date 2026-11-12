@@ -1,0 +1,36 @@
+{
+  "python": {
+    "release": "20261009",
+    "version": "3.12.15",
+    "flavor": "install_only_stripped",
+    "base_url": "https://github.com/astral-sh/python-build-standalone/releases/download"
+  },
+  "uv": "0.11.25",
+  "macos_deployment_target": "13.0",
+  "targets": {
+    "linux-x64": {
+      "triple": "x86_64-unknown-linux-gnu",
+      "wheel_platform": "x86_64-manylinux_2_17",
+      "layout": "posix",
+      "sha256": "ffa8f85f1b56e88b687f08d743d817015524b86a9365fd921243132b80f1a36d"
+    },
+    "mac-arm64": {
+      "triple": "aarch64-apple-darwin",
+      "wheel_platform": "aarch64-apple-darwin",
+      "layout": "posix",
+      "sha256": "233f8e15255b3e1d1fd47ea5dd5230dfed803f371138e896e54d98c60ae19f6f"
+    },
+    "mac-x64": {
+      "triple": "x86_64-apple-darwin",
+      "wheel_platform": "x86_64-apple-darwin",
+      "layout": "posix",
+      "sha256": "fb3187d95334813b88940db0f1ca57b84cedfd552739c3a5771c3ea0e49988c9"
+    },
+    "win-x64": {
+      "triple": "x86_64-pc-windows-msvc",
+      "wheel_platform": "x86_64-pc-windows-msvc",
+      "layout": "windows",
+      "sha256": "11ed9f8a6ac64fb1b5a55e40e305a6744a3f77a70863c8f8197a6e4349abc64a"
+    }
+  }
+}

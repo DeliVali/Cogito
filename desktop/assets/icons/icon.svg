@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <radialGradient id="sphere" cx="35%" cy="27%" r="75%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="26%" stop-color="#e4eefa"/>
+      <stop offset="58%" stop-color="#bcd0ec"/>
+      <stop offset="86%" stop-color="#8aa6d2"/>
+      <stop offset="100%" stop-color="#6582b4"/>
+    </radialGradient>
+    <radialGradient id="specular" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="70%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.55"/>
+      <stop offset="70%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="shadow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1e3259" stop-opacity="0.30"/>
+      <stop offset="70%" stop-color="#1e3259" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <ellipse cx="128" cy="218" rx="72" ry="11" fill="url(#shadow)"/>
+  <circle cx="128" cy="128" r="100" fill="url(#sphere)"/>
+  <ellipse cx="98" cy="86" rx="42" ry="26" fill="url(#specular)" transform="rotate(-28 98 86)"/>
+  <ellipse cx="141" cy="174" rx="44" ry="22" fill="url(#glow)"/>
+  <circle cx="128" cy="128" r="99" fill="none" stroke="#ffffff" stroke-opacity="0.35" stroke-width="2"/>
+</svg>

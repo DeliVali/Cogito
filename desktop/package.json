@@ -1,0 +1,22 @@
+{
+  "name": "cogito-desktop",
+  "version": "0.2.0",
+  "description": "The COGITO desktop application",
+  "homepage": "https://github.com/DeliVali/Cogito",
+  "private": true,
+  "main": "src/main/index.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "dependencies": {
+    "electron-updater": "6.8.10"
+  },
+  "devDependencies": {
+    "electron": "^44.4.3",
+    "electron-builder": "26.15.3"
+  },
+  "allowScripts": {
+    "electron-winstaller": false
+  }
+}

@@ -1,0 +1,292 @@
+/* Attachments, design 1n, with the canvas' values (`COGITO v2.dc.html`, section 1n): the
+   chips on the composer and above a sent message, the count beside «+ adjuntar», and the
+   layer a file is dropped on. A value that differs does so for contrast (WCAG 2.2 AA, 4.5:1
+   for the 8.5-11.5 px text here), and DESIGN-DEVIATIONS.md says which and why. */
+
+/* This file's own colours, where no shared variable in styles.css has the same light value.
+   The badges keep one colour in both themes: their white text is measured on them. */
+:root {
+  --attach-chip: linear-gradient(#f6f8fc, #e2e8f2);
+  --attach-refused: linear-gradient(#fdf1ef, #f6dcd8);
+  --attach-refused-edge: #c98f87;
+  --attach-refused-ink: #6b231b;
+  --attach-refused-sub: #a4473b;
+  --attach-remove-hover: rgba(45, 55, 78, 0.12);
+  --attach-sent: #dde6f4;
+  --attach-drop-layer: rgba(214, 224, 240, 0.55);
+  --attach-drop-card: linear-gradient(175deg, rgba(255, 255, 255, 0.85), rgba(226, 236, 250, 0.8));
+  --attach-drop-edge: #6c7fa6;
+  --attach-drop-shadow-rgb: 30, 50, 90;
+  --attach-warn: linear-gradient(#fdf8ea, #f6ecd2);
+  --attach-warn-sub: #7a5a0c;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --attach-chip: linear-gradient(#3d4452, #323946);
+    --attach-refused: linear-gradient(#45292a, #3a2322);
+    --attach-refused-edge: #8c4c44;
+    --attach-refused-ink: #ffc6be;
+    --attach-refused-sub: #f0a096;
+    --attach-remove-hover: rgba(255, 255, 255, 0.1);
+    --attach-sent: #2c3b56;
+    --attach-drop-layer: rgba(10, 12, 16, 0.5);
+    --attach-drop-card: linear-gradient(175deg, rgba(48, 56, 70, 0.92), rgba(38, 48, 66, 0.9));
+    --attach-drop-edge: #7a9edb;
+    --attach-drop-shadow-rgb: 0, 0, 0;
+    --attach-warn: linear-gradient(#433a22, #3a321a);
+    --attach-warn-sub: #ecd690;
+  }
+}
+
+/* ---------- the chips on the composer ---------- */
+
+.attach-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Hidden means gone: an empty chips row would add the balloon's gap above the message. */
+.attach-chips[hidden] {
+  display: none;
+}
+
+.attach-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  min-width: 0;
+  padding: 4px 6px 4px 5px;
+  background: var(--attach-chip);
+  border: 1px solid var(--grey-border);
+  border-radius: 6px;
+  box-shadow: inset 0 1px 0 var(--highlight);
+  animation: chipIn 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.3) backwards;
+  transition:
+    opacity 0.16s ease-in,
+    transform 0.16s ease-in;
+}
+
+.attach-chip.is-leaving {
+  opacity: 0;
+  transform: scale(0.8);
+  pointer-events: none;
+}
+
+.attach-chip--refused {
+  background: var(--attach-refused);
+  border-color: var(--attach-refused-edge);
+}
+
+.attach-chip-badge {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  /* The canvas' #4a78c2 measures 4.41:1 under white. One step darker is 4.58:1. */
+  background: #4775c1;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  font: 700 8.5px var(--mono);
+  color: #fff;
+}
+
+.attach-chip--error .attach-chip-badge {
+  background: #a8574c;
+}
+
+/* The canvas' #8a94a8 measures 3.05:1 under white. */
+.attach-chip--refused .attach-chip-badge {
+  background: #6b7488;
+}
+
+.attach-chip-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.attach-chip-name {
+  font: 600 11.5px var(--sans);
+  color: var(--ink-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The canvas' #8b93a3 measures 2.5:1 on the chip: the app's faint tier (UX-04). */
+.attach-chip-sub {
+  font: 10px var(--mono);
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+.attach-chip--refused .attach-chip-name {
+  color: var(--attach-refused-ink);
+}
+
+.attach-chip--refused .attach-chip-sub {
+  color: var(--attach-refused-sub);
+}
+
+.attach-chip-remove {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  font: 700 9px var(--sans);
+  color: var(--grey);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.attach-chip-remove:hover {
+  background: var(--attach-remove-hover);
+}
+
+/* «1 adjunto» beside «+ adjuntar» (the canvas' `attCount`), in the faint tier. */
+.attach-count {
+  font: 10.5px var(--mono);
+  color: var(--ink-faint);
+}
+
+/* ---------- above a sent message ---------- */
+
+/* The message and its chips, right-aligned together, 6 px apart (the canvas' sent turn). */
+.said-group {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.said-group > .said {
+  align-self: auto;
+}
+
+.said-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  max-width: 78%;
+}
+
+.said-attachments .attach-chip {
+  gap: 7px;
+  padding: 4px 9px 4px 5px;
+  background: var(--attach-sent);
+  border-color: var(--blue-border);
+  box-shadow: none;
+  animation: none;
+}
+
+/* ---------- the drop layer ---------- */
+
+/* Over everything under the title bar and the bar (24 + 34 px), as the canvas' `top:58px`. */
+/* Over the conversation only: the message field below stays visible, and the file
+   explorer at its left takes a dropped file into the project's folder instead. */
+.drop-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--attach-drop-layer);
+  backdrop-filter: blur(3px);
+  animation: fadeIn 0.18s ease-out backwards;
+  transition: opacity 0.18s ease-in;
+  pointer-events: none;
+}
+
+.drop-layer.is-leaving {
+  opacity: 0;
+}
+
+.drop-card {
+  width: 520px;
+  max-width: calc(100% - 40px);
+  box-sizing: border-box;
+  padding: 34px 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  background: var(--attach-drop-card);
+  border: 2px dashed var(--attach-drop-edge);
+  border-radius: 18px;
+  box-shadow:
+    0 18px 40px rgba(var(--attach-drop-shadow-rgb), 0.18),
+    inset 0 1px 0 var(--highlight);
+  animation: dropPulse 1.6s ease-in-out infinite;
+}
+
+.drop-title {
+  font: 600 16px var(--sans);
+  color: var(--ink-deep);
+}
+
+.drop-detail {
+  font: 12px/1.5 var(--sans);
+  color: var(--ink-soft);
+  text-align: center;
+}
+
+@keyframes dropPulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+}
+
+/* A long message (render-thread.js `buildSaid`): its first lines, faded, and «Mostrar
+   todo». The whole text stays in the bubble. */
+.said--collapsed {
+  max-height: 16.5em;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, #000 72%, transparent);
+  mask-image: linear-gradient(to bottom, #000 72%, transparent);
+}
+
+.said-toggle {
+  border: 0;
+  background: none;
+  padding: 0 2px;
+  font: 11px var(--sans);
+  color: var(--blue);
+  cursor: pointer;
+}
+
+.said-toggle:hover {
+  text-decoration: underline;
+}
+
+/* An image the model in use cannot see: it still goes, as a line saying so, and the chip
+   says it first, in the app's amber (waiting on the person, never an error). */
+.attach-chip--warn {
+  background: var(--attach-warn);
+  border-color: var(--amber);
+}
+
+.attach-chip--warn .attach-chip-badge {
+  background: #8a6d10;
+}
+
+.attach-chip--warn .attach-chip-sub {
+  color: var(--attach-warn-sub);
+}

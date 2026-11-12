@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "version": "0.2.0",
+  "security": false,
+  "tools": [
+    "Navegador integrado, en pestañas junto al chat",
+    "Terminal junto al chat para lo que requiere tu contraseña",
+    "El modelo puede ver la pantalla y usar la computadora",
+    "Subagentes que investigan en su propio contexto",
+    "Lista de tareas del modelo, visible en el hilo",
+    "El modelo puede agregar servidores MCP"
+  ],
+  "improvements": [
+    "Modo automático para los permisos",
+    "Control de cuánto piensa el modelo",
+    "Cada paso reutiliza lo que el modelo ya leyó",
+    "Los comandos largos siguen en segundo plano",
+    "Cogito Motoris se reinicia solo si se cae",
+    "La búsqueda web lee las páginas que encuentra",
+    "Modo oscuro"
+  ]
+}

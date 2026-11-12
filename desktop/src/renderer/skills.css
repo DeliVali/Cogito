@@ -1,0 +1,189 @@
+/* The composer's skills picker (skills-tray.js): the chip row above the message reuses the
+   attach-chip look (attach.css); this file is the ✦ badge tone, the menu that opens upward
+   from the button, and its rows. The palette matches the other menus (styles.css), in both
+   themes. */
+
+/* The «Más» bolt's pale fill would glare on the dark composer: there it is a dim blue with a
+   light outline. A mid blue was too close to «Sin límite»'s full blue to tell apart (QA rig,
+   2026-11-02). */
+:root {
+  --skills-long-fill: #c3d5f3;
+  --skills-long-stroke: #3d5f9e;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --skills-long-fill: #2a3d61;
+    --skills-long-stroke: #adc6f0;
+  }
+}
+
+/* A skill chip's badge, apart from a file attachment's blue: the accent, so the two kinds of
+   chip read as different. */
+.attach-chip--skill .attach-chip-badge {
+  background: #6b53c1;
+}
+
+/* The menu opens upward (the composer sits at the bottom of the window); skills-tray.js sets
+   `left` and `bottom`. */
+.skills-menu {
+  transform-origin: bottom left;
+  max-width: 340px;
+  /* A long catalog stays on screen and scrolls. */
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+}
+
+/* Each skill: its name over its one-line description. */
+.skills-menu-item {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 8px 12px;
+}
+
+.skills-menu-name {
+  font: 600 12px var(--sans);
+  color: var(--ink);
+}
+
+.skills-menu-desc {
+  max-width: 100%;
+  font: 11px var(--sans);
+  color: var(--ink-soft);
+  /* One line, clipped: the menu lists skills to pick, not to read in full. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* «Cargando…» / «Sin habilidades» when the menu has nothing to list. */
+.skills-menu-empty {
+  padding: 10px 12px;
+  font: 11px var(--sans);
+  color: var(--ink-soft);
+}
+
+/* The composer's thinking control (thinking-control.js): a bolt beside the skills picker,
+   the same muted icon button as the clip and «/». Its look is the level: an outline
+   (Normal), struck through (No), filled blue (Más), filled with a glow (Sin límite). */
+.thinking-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: var(--ink-muted);
+  opacity: 0.75;
+  cursor: pointer;
+  transition:
+    opacity 0.12s,
+    background 0.12s,
+    color 0.12s;
+}
+
+.thinking-button[hidden] {
+  display: none;
+}
+
+.thinking-button:hover {
+  opacity: 1;
+  color: var(--ink);
+  background: rgba(110, 147, 210, 0.12);
+}
+
+.thinking-button:active {
+  background: rgba(110, 147, 210, 0.2);
+}
+
+.thinking-button:focus-visible {
+  opacity: 1;
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.thinking-button svg,
+.thinking-icon {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  overflow: visible;
+}
+
+.thinking-slash {
+  display: none;
+}
+
+[data-level='off'] .thinking-slash {
+  display: inline;
+}
+
+[data-level='off'] .thinking-bolt {
+  opacity: 0.55;
+}
+
+/* A level above Normal keeps its colour at rest: what the next message will do stays visible. */
+.thinking-button[data-level='long'],
+.thinking-button[data-level='free'] {
+  opacity: 1;
+}
+
+/* Más: a pale fill. Sin límite: the full blue, lit, like the orb at work. */
+[data-level='long'] .thinking-bolt {
+  fill: var(--skills-long-fill);
+  stroke: var(--skills-long-stroke);
+}
+
+[data-level='free'] .thinking-bolt {
+  fill: #3f74d8;
+  stroke: var(--blue);
+  filter: drop-shadow(0 0 2px rgba(80, 140, 255, 0.95)) drop-shadow(0 0 4px rgba(120, 170, 255, 0.6));
+}
+
+.thinking-menu {
+  transform-origin: bottom left;
+  max-width: 300px;
+}
+
+.thinking-menu-item {
+  display: grid;
+  grid-template-columns: 15px 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 10px;
+  row-gap: 2px;
+  align-items: center;
+  align-content: center;
+  justify-items: start;
+  height: auto;
+  min-height: 0;
+  padding: 7px 12px;
+}
+
+.thinking-menu-item .thinking-icon {
+  grid-row: span 2;
+  color: var(--ink-muted);
+}
+
+.thinking-menu-name {
+  font: 600 12px var(--sans);
+  color: var(--ink);
+}
+
+.thinking-menu-item.is-current .thinking-menu-name::after {
+  content: ' ✓';
+  color: var(--ink-soft);
+}
+
+.thinking-menu-desc {
+  font: 11px var(--sans);
+  color: var(--ink-soft);
+}

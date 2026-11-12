@@ -1,0 +1,427 @@
+/* Design 1f, «Proyectos» (projects.js): the full-window screen under the title bar. Every
+   value is the canvas' (`COGITO v2.dc.html`, section 1f; a missing folder is 1j's
+   «Proyectos · la carpeta ya no existe»), with one exception, as in the main window
+   (styles.css, UX-04): the canvas' faint greys (#8b93a3, #9aa3b5, #aab3c5) are drawn in
+   `--ink-faint` and #6a7590 in `--ink-soft`, which meet WCAG 2.2's 4.5:1 where the
+   canvas' colours do not. Hover and press states exist only where the canvas has them. */
+
+/* Colours this screen uses that styles.css has no role for: the light values are the
+   canvas', the dark ones the same roles in graphite. In dark, --projects-title is 11.8:1 on
+   the hero, --projects-selected-faint 5.8 on --projects-selected, --projects-missing-ink
+   6.1 on --projects-missing, and --ink-heading 4.95 on --projects-open's lightest stop. The
+   folder spheres keep their light colours: they are lit marks. */
+:root {
+  --projects-hero: linear-gradient(175deg, #eef2f8, #e0e6f0);
+  --projects-hero-edge: #c3cbd9;
+  --projects-title: #26262c;
+  --projects-row: rgba(244, 247, 251, 0.85);
+  --projects-row-hover: #f4f7fb;
+  --projects-open: linear-gradient(#f1f6fe 0%, #cddcf3 48%, #b3c9ea 52%, #d6e4f6 100%);
+  --projects-open-edge: #6c7fa6;
+  --projects-selected: #b9cbe8;
+  --projects-selected-faint: #3c4d70;
+  --projects-missing: linear-gradient(#fdf6f5, #f8e9e7);
+  --projects-missing-ink: #6b3a33;
+  --projects-busy: rgba(244, 247, 251, 0.6);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --projects-hero: linear-gradient(175deg, #2a303b, #232933);
+    --projects-hero-edge: #3e4656;
+    --projects-title: #eef2f8;
+    --projects-row: rgba(42, 48, 59, 0.85);
+    --projects-row-hover: #313844;
+    --projects-open: linear-gradient(#4b6697 0%, #3a5482 48%, #304a76 52%, #3e5a8c 100%);
+    --projects-open-edge: #6283bf;
+    --projects-selected: #33456a;
+    --projects-selected-faint: #c3cbda;
+    --projects-missing: linear-gradient(#432826, #3a2321);
+    --projects-missing-ink: #f2a59c;
+    --projects-busy: rgba(42, 48, 59, 0.6);
+  }
+}
+
+.projects-overlay {
+  position: fixed;
+  top: 24px; /* the title bar stays: «COGITO — proyectos» */
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  background: var(--transcript);
+  animation: fadeIn 0.2s ease-out both;
+}
+
+.projects-overlay.is-closing {
+  opacity: 0;
+  transition: opacity var(--close-ms) ease-in;
+}
+
+/* ---------- the hero band ---------- */
+
+.projects-hero {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 28px max(16px, calc(50% - 340px)) 16px;
+  background: var(--projects-hero);
+  border-bottom: 1px solid var(--projects-hero-edge);
+}
+
+.projects-title {
+  font: 600 21px var(--sans);
+  letter-spacing: -0.01em;
+  color: var(--projects-title);
+}
+
+.projects-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* The canvas' «⌕ buscar proyecto…» field, made a real one. */
+.projects-search {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 11px;
+  background: var(--surface-alt);
+  border: 1px solid var(--raised-edge);
+  border-radius: 6px;
+  box-shadow: inset 1px 1px 2px rgba(var(--shade-deep-rgb), 0.18);
+  font: 12px var(--mono);
+  color: var(--ink-faint);
+  cursor: text;
+}
+
+.projects-search-glyph {
+  flex: none;
+}
+
+.projects-search-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: var(--ink-strong);
+}
+
+.projects-search-input::placeholder {
+  color: var(--ink-faint);
+  opacity: 1;
+}
+
+/* A text field matches :focus-visible on a click too. It draws no ring: the caret is its
+   focus indicator (styles.css, "focus"). */
+.projects-search-input:focus-visible {
+  outline: none;
+}
+
+/* «Abrir carpeta…» (and «Cancelar», which the canvas does not draw): the raised square. */
+.projects-open-folder,
+.projects-close {
+  flex: none;
+  padding: 6px 13px;
+  font: 600 11.5px var(--sans);
+  color: var(--ink);
+  white-space: nowrap;
+  background: var(--raised);
+  border: 1px solid var(--raised-edge);
+  border-radius: 6px;
+  box-shadow:
+    2px 2px 0 rgba(var(--shade-rgb), 0.2),
+    inset 1px 1px 0 var(--highlight);
+  cursor: pointer;
+  transition: transform 0.08s ease-out;
+}
+
+.projects-open-folder:active:not(:disabled),
+.projects-close:active:not(:disabled) {
+  transform: translate(1px, 1px);
+  box-shadow: inset 1px 1px 2px rgba(var(--shade-deep-rgb), 0.3);
+}
+
+.projects-open-folder:disabled,
+.projects-close:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* ---------- the list ---------- */
+
+.projects-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 16px max(16px, calc(50% - 340px));
+  background: var(--transcript);
+}
+
+.projects-section-label {
+  font: 10px var(--mono);
+  letter-spacing: 0.15em;
+  color: var(--ink-faint);
+}
+
+.projects-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.projects-note {
+  padding: 6px 10px;
+  background: var(--amber-ground);
+  border: 1px solid var(--amber);
+  border-radius: 5px;
+  font: 11.5px var(--sans);
+  color: var(--amber-ink);
+}
+
+.projects-empty {
+  padding: 18px 0;
+  font: 12px var(--sans);
+  color: var(--ink-faint);
+}
+
+.projects-empty[hidden] {
+  display: none;
+}
+
+.projects-hint {
+  margin-top: 6px;
+  font: 10.5px var(--mono);
+  color: var(--ink-faint);
+}
+
+/* A row, as the canvas' `pr.off`: the pale ground, brighter under the pointer. */
+.projects-row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 12px;
+  background: var(--projects-row);
+  border: 1px solid var(--edge-soft);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.12s;
+  animation: rise 0.35s ease-out both;
+}
+
+.projects-row:hover {
+  background: var(--projects-row-hover);
+}
+
+.projects-row-sphere {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 27%, #ffffff 0%, #e4eefa 30%, #bcd0ec 62%, #8aa6d2 100%);
+  opacity: 0.75;
+}
+
+.projects-row-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.projects-row-name {
+  font: 600 13px var(--sans);
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.projects-row-path {
+  font: 10.5px var(--mono);
+  color: var(--ink-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.projects-row-meta {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+}
+
+.projects-row-when {
+  font: 10px var(--mono);
+  color: var(--ink-faint);
+}
+
+/* «Abrir»: the blue pill, on the selected row only. Other rows keep its 66px slot empty,
+   as the canvas does. */
+.projects-row-open {
+  margin-left: 6px;
+  width: 66px;
+  flex: none;
+  box-sizing: border-box;
+  padding: 5px 0;
+  text-align: center;
+  font: 600 11.5px var(--sans);
+  color: var(--ink-heading);
+  background: var(--projects-open);
+  border: 1px solid var(--projects-open-edge);
+  border-radius: 999px;
+  box-shadow:
+    0 2px 4px rgba(45, 70, 120, 0.25),
+    inset 0 1px 0 rgba(var(--highlight-rgb), 0.95);
+  cursor: pointer;
+  transition:
+    transform 0.08s ease-out,
+    filter 0.15s;
+  visibility: hidden;
+}
+
+.projects-row-open:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.projects-row-open:active:not(:disabled) {
+  transform: translateY(1px);
+  filter: brightness(0.94);
+}
+
+.projects-row-open:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* The selected row, as the canvas' `pr.on`: sunk, blue, darker type, «Abrir» shown. */
+.projects-row.is-selected {
+  background: var(--projects-selected);
+  border-color: var(--edge-strong);
+  box-shadow: inset 1px 1px 3px rgba(var(--shade-deep-rgb), 0.25);
+}
+
+.projects-row.is-selected .projects-row-sphere {
+  opacity: 1;
+  box-shadow: inset 0 0 0 1px rgba(var(--highlight-rgb), 0.6);
+}
+
+.projects-row.is-selected .projects-row-name {
+  color: var(--ink-deep);
+}
+
+.projects-row.is-selected .projects-row-path,
+.projects-row.is-selected .projects-row-when {
+  color: var(--projects-selected-faint);
+}
+
+.projects-row.is-selected .projects-row-open {
+  visibility: visible;
+}
+
+/* ---------- a folder that no longer exists (design 1j) ---------- */
+
+.projects-row--missing {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  background: var(--projects-missing);
+  border-color: var(--red-border);
+  cursor: default;
+  animation: errIn 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2) 0.15s both;
+}
+
+.projects-row--missing:hover {
+  background: var(--projects-missing);
+}
+
+.projects-row-line {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.projects-row--missing .projects-row-sphere {
+  background: radial-gradient(circle at 35% 27%, #fff 0%, #e3e6ec 50%, #b2b9c6 100%);
+  opacity: 0.8;
+}
+
+.projects-row--missing .projects-row-name {
+  color: var(--ink-soft);
+}
+
+/* The row says «Carpeta no encontrada» once, in its note. The name is not struck through
+   and the path is not repeated in red: both said the same thing again (QA 2026-10-13). */
+.projects-row--missing .projects-row-path {
+  color: var(--ink-faint);
+}
+
+.projects-row-note {
+  font: 12px/1.5 var(--sans);
+  color: var(--projects-missing-ink);
+}
+
+.projects-row-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+/* «Quitar de la lista»: 1j's raised square. */
+.projects-row-forget {
+  padding: 4px 12px;
+  font: 600 11px var(--sans);
+  color: var(--ink);
+  background: var(--raised);
+  border: 1px solid var(--raised-edge);
+  border-radius: 6px;
+  box-shadow:
+    2px 2px 0 rgba(var(--shade-rgb), 0.18),
+    inset 1px 1px 0 var(--highlight);
+  cursor: pointer;
+  transition: transform 0.08s ease-out;
+}
+
+.projects-row-forget:active:not(:disabled) {
+  transform: translate(1px, 1px);
+}
+
+.projects-row-forget:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* ---------- the header's project chip (styles.css draws it; this is its busy state) ---------- */
+
+/* Not dimmed with opacity: 0.55 dropped the text to 2.81:1, under WCAG 2.2's 4.5:1
+   (2026-09-29 UX final verification, REGRESSED item 1). This reuses `.chip.branch`'s
+   lighter "not a control right now" look: `--ink-soft` on this fill measures 6.17:1 or
+   more against the context bar's gradient. */
+.chip.project.is-busy {
+  background: var(--projects-busy);
+  border-color: var(--rule);
+  box-shadow: none;
+  font-weight: 400;
+  color: var(--ink-soft);
+  cursor: default;
+  pointer-events: none;
+}
+
+.chip.project {
+  cursor: pointer;
+}

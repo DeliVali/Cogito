@@ -1,0 +1,40 @@
+# Runtime state — never tracked
+.cogito/
+*.log
+
+# Secrets
+.env
+.env.*
+
+# Models and large binaries
+*.gguf
+models/
+vendor/
+# Except the renderer's vendored xterm.js, which the app loads (CONTRIBUTING.md folder map).
+!/desktop/src/renderer/vendor/
+
+# Build output
+dist/
+build/
+out/
+*.spec
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# Node
+node_modules/
+desktop/dist/
+
+# Not part of the application (see CONTRIBUTING.md section 5)
+tests/
+bench/
+experiments/
+measurements/
+scratch*
+tmp*
+notes*
