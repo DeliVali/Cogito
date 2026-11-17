@@ -30,6 +30,8 @@ local model does good work. Every harness change is kept or reverted by a measur
 
 - A deletion waits for your approval, and the card says whether it goes to the trash or
   cannot be undone. `cogito undo` restores what went to the trash.
+- In the app, deleting files inside the project folder is not asked about when they go to
+  the trash. The folder itself, anything outside it and anything permanent still ask.
 - Operating system files, your keys and the session's own record are refused, not asked.
 - In the app, installing or upgrading system packages needs your approval.
 - «Automático», under the message, answers these questions for you when the loss can come

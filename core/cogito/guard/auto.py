@@ -6,6 +6,9 @@ that may change something, a line for the person's terminal. What the guard refu
 never a question, so it stays refused: operating-system files (`Zone.SYSTEM`, the home
 directory itself and `/` among them) and the session's own `.cogito/`.
 
+With it off, one kind of question is still answered here (`in_project`): a deletion that
+goes to the trash and touches only what is inside the project folder.
+
 Still put to the person (`kept_asking`): whatever destroys for good, and, among what goes
 to the trash, the project folder or all of it, their keys and credentials, Cogito's own
 settings and memory, and a folder directly in their home or all of it.
@@ -161,6 +164,29 @@ class AutoMode:
             if why := self._container(folder) or self._whole_folder(folder):
                 return why
         return None
+
+    def in_project(self, request: ApprovalRequest) -> bool:
+        """APP ONLY, whether the switch is on or not: True when ``request`` deletes or
+        empties only what is inside the project folder and the trash keeps it, so the
+        person is not asked (2026-11-16: "que no me pida permisos al eliminar archivos
+        dentro de la carpeta").
+
+        It is the automatic mode's own judgement (`kept_asking`), narrowed to the project:
+        a PATH shim's question, with the names the shell expanded, each one strictly inside
+        the folder, where it leads and as the entry it is. The folder itself, all of it
+        at once, anything outside it and whatever destroys for good are still asked."""
+        if request.action not in _FILE_ACTIONS or self.kept_asking(request) is not None:
+            return False
+        named = list(self._named(request))
+        if not named and not request.within:
+            return False
+
+        def inside(path: Path) -> bool:
+            return self._project in path.parents
+
+        return all(inside(leads) and inside(entry) for leads, entry, _removes in named) and all(
+            inside(_resolved(folder)) for folder in request.within
+        )
 
     def _place(self, base: Path, fixed: str) -> Path:
         """Where a pattern's fixed part points from ``base``: `~` is this home, as the

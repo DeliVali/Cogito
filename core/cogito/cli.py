@@ -3625,6 +3625,8 @@ def _window_approver(approvals, emit, cancel, auto=None):
     APP ONLY: with the composer's automatic mode on (``auto``, `guard.auto.AutoMode`), a
     question it does not keep asking is allowed here, unasked: the window gets the request
     with ``"auto": true``, which it draws as the pill «Automático», and no card.
+    With the mode off, a deletion that goes to the trash and touches only what is inside
+    the project folder is answered the same way (`AutoMode.in_project`).
 
     The guard calls this from inside the tool hook, so blocking here is what holds the
     action back; there is nowhere else to hold it. The request goes out in the terms the
@@ -3721,6 +3723,12 @@ def _window_approver(approvals, emit, cancel, auto=None):
                     allowed=True, note="allowed by automatic mode", reason="auto"
                 )
             request = replace(request, kept_asking=kept)
+        elif auto is not None and auto.in_project(request):
+            # Inside the project folder and kept by the trash: not asked, mode or no mode.
+            emit({**described(request), "id": f"auto-{new_id()}", "auto": True})
+            return ApprovalResponse(
+                allowed=True, note="inside the project, kept in the trash", reason="auto"
+            )
         identifier = approvals.open()
         emit({"type": "phase", "phase": Phase.AWAITING_APPROVAL.value})
         emit({**described(request), "id": identifier})

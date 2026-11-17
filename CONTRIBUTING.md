@@ -2052,6 +2052,24 @@ five tries in a minute. Lab: `tests/guard/test_auto_mode_night.py`,
 `tests/desktop/test_night_stream_reattach.mjs` (fail before); the supervisor test that
 expected the error now expects the session followed again.
 
+**In the app, a deletion inside the project folder is not asked about** (asked by the
+person on 2026-11-16: "que no me pida permisos al eliminar archivos dentro de la carpeta",
+keeping the guard on operating-system files). With the automatic mode off, the window's
+approver now answers one kind of question itself (`AutoMode.in_project`): what a PATH shim
+deletes or empties, so it goes to the trash, when every name the shell expanded is strictly
+inside the project folder, where it leads and as the entry it is. It is the automatic
+mode's own judgement narrowed to the project, so the same things are still asked: the
+folder itself or every entry of it at once, anything outside it, a link that leads
+outside, and whatever destroys for good (`/bin/rm`, `find -delete`, `mv` over a file),
+which is judged from the command's text and was shown on 2026-11-03 not to be readable
+safely. What the guard refuses stays refused. The window draws the pill «Automático» and
+no card, and `cogito undo` restores the file. No new source was read for it: the rule
+reuses the automatic mode's, whose sources are with that entry. Lab:
+`tests/guard/test_project_deletions.py` (fails before). Shown in the real app on the QA rig:
+`rm notas.txt` ran with no card and the file went to the trash, a file outside the project
+still got its card, and `/etc/hosts` was refused. `chat` and every benchmark have no window
+approver, so they are unchanged.
+
 **The connection form lists only the Claude API** (decided by the user on 2026-10-31: "de
 momento en este listado solo deja la API de Claude"). The other services stay defined in
 `connect.PROVIDERS`, so an entry saved with one keeps working; `SHOWN_PROVIDERS` decides
