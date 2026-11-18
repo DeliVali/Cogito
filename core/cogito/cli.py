@@ -788,6 +788,13 @@ def _app_owned() -> bool:
     return os.environ.get("COGITO_PARENT_PID", "").strip().isdigit()
 
 
+def _lmms_wanted() -> bool:
+    """Whether LMMS, the program the `lmms` tool writes for and runs, is installed."""
+    from cogito.tools.lmms import program
+
+    return bool(program.find())
+
+
 def _computer_wanted() -> bool:
     """Whether this machine has a desktop the `computer` tool can reach: Linux with a
     session bus, where the portals answer (`tools.desktop.portal.available`)."""
@@ -3079,6 +3086,14 @@ def _build_engine(
                 )
             }
         )
+    # APP-ONLY: `lmms`, notes written as an LMMS project the person opens, hears and edits
+    # (`tools/lmms`). It writes inside the project folder only, and runs the LMMS the
+    # person installed, and is registered only where LMMS is: its definition is on every
+    # step, and without the program it has little to offer. Never in `chat` or a benchmark.
+    if in_app and _app_owned() and _lmms_wanted():
+        from cogito.tools.lmms.tool import LmmsTool
+
+        install(LmmsTool())
     # APP-ONLY: `browser`, web pages the model opens and uses by their elements
     # (`tools/browser`), in the app's own tabs: the desktop's main process runs each
     # operation and answers through the session's bridge (`server/browsers.py`). Asked about
@@ -3174,7 +3189,7 @@ def _build_engine(
         install(TodoTool(TodoList(), record=store.record))
     skipped -= {
         "ask", "recall", "ask_document", "web_search", "web_fetch", "skill", "computer",
-        "browser", "run_in_terminal", "read_terminal", "delegate", "todo",
+        "browser", "run_in_terminal", "read_terminal", "delegate", "todo", "lmms",
     }
     if skipped:
         # Otherwise a misspelled name would read as a successful A/B against a tool that

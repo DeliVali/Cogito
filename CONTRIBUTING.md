@@ -170,6 +170,7 @@ hook rejects new top-level files that are not listed.
 | `core/cogito/tools/desktop/` | `computer`: seeing the screen and using the mouse and keyboard, through the desktop's portals (Screenshot, RemoteDesktop with screen sharing) on Linux, and opening programs, files and addresses through their desktop entries (`launch.py`) |
 | `core/cogito/tools/terminal/` | `run_in_terminal` and `read_terminal`, and the terminal tabs the app shows beside «Hilo»: the person's own shell on a PTY (POSIX), its prompt marks, and a screen model the model reads |
 | `core/cogito/tools/browser/` | `browser`: web pages the model opens in the app's own tabs and uses by their elements' refs, and their HTML, scripts, network, console and storage, through the desktop's main process (`server/browsers.py` carries each named operation there and back) |
+| `core/cogito/tools/lmms/` | `lmms`: notes the model writes as text (`score.py`), made into an LMMS project the person opens and edits (`mmp.py`), and LMMS run to render it or open it (`program.py`). LMMS is the person's install, never shipped |
 | `core/cogito/tools/mcp/` | MCP servers' tools: the stdio, HTTP and container (`docker run`) clients, OAuth sign-in for remote servers, the hub that registers every server tool and picks which few each step shows (`mcp_find` included), each server's tool list from its last start (`catalog.py`), the model's `mcp_add` (`install.py`), a project's `.mcp.json` and its approvals (`project.py`) and the import of other clients' servers (`imports.py`) |
 | `core/cogito/tools/builtin_skills/` | Agent Skills that ship with Cogito, one folder each with its `SKILL.md` (how to add an MCP server or a skill to Cogito; how to find and remove dead code) |
 | `core/cogito/context/` | Token ledger, per-tool budgets, offload, compaction, prompt assembly |
@@ -2069,6 +2070,58 @@ reuses the automatic mode's, whose sources are with that entry. Lab:
 `rm notas.txt` ran with no card and the file went to the trash, a file outside the project
 still got its card, and `/etc/hosts` was refused. `chat` and every benchmark have no window
 approver, so they are unchanged.
+
+**In the app, the model writes music as an LMMS project the person opens** (asked by the
+person on 2026-11-18: "una herramienta opensource para hacer música ... una tool dentro de
+cogito que pueda manejarla, algo como FL Studio"). The model cannot hear, so the tool keeps
+it on what it can do, writing notes, and leaves the listening to the person. LMMS
+(GPL-2.0-or-later; 1.2.2 is the stable release and what Arch packages, 1.3.0-alpha.2 came
+out on 2026-09-06) is the open-source workstation closest to FL Studio, and its project is
+plain XML, so no window has to be driven. Read on 2026-11-18: LMMS 1.2.2's sources for the
+format (data/projects/templates/default.mpt, src/core/DataFile.cpp, Note.cpp,
+src/tracks/Pattern.cpp, plugins/sf2_player, plugins/audio_file_processor) and for
+`lmms render`, which builds no window (src/core/main.cpp); MCP servers that drive a
+workstation exist for REAPER and Ableton Live, which are not open source, and none was
+found for LMMS, Ardour or Zrythm. `lmms` (`tools/lmms`) has four actions:
+
+- `write` creates a project or changes one. A track is found by its name: its notes are
+  replaced, its instrument only when the call gives one, and every other track, the
+  effects, the mixer and what the person set in LMMS stay. The file as it was is kept as
+  `NAME.mmp.bak`.
+- `read` returns the tempo and every track's notes as the same text, so the model sees
+  what the person changed. A project that changed since the session last read or wrote it
+  is not overwritten: the call is refused once and told to read first.
+- `render` runs `lmms render` to an ogg, wav or mp3 beside the project, stopped by
+  «Detener» or after 600 s (a choice).
+- `open` starts LMMS with the project and leaves it running.
+
+Notes are tokens in order, `PITCH:BEATS[:VOLUME]`, with `[C4 E4 G4]:2` for a chord, `r:1`
+for a rest and `>BEAT` to jump, which is how a second voice is written. The format is
+ours. Models trained on music use ABC notation (MuPT, arXiv 2404.06393; ChatMusician,
+arXiv 2402.16153, which counts ABC at 38% of MIDI's tokens, their number), but ABC sets
+pitch and length through headers that hold for the whole tune, and here every token
+carries its own. Which one a general model writes with fewer wrong notes is not measured.
+Instruments are a drum kit on the samples LMMS ships (one LMMS track per drum, since its
+sample player holds one sample), ten synths built on TripleOscillator, and General MIDI
+names through LMMS's SoundFont player; where no SoundFont is installed a synth stands in
+and the result says so. LMMS is the person's install: Cogito ships and downloads none of
+it, and without it the project is still written and the model is told how the person
+installs it. The tool writes inside the project folder only, never under `.cogito`, and
+reads no XML that declares entities. Its definition is on every step (about 620 tokens at
+four characters a token, 1,120 by the harness's own floor), so it is registered only where
+`lmms` is on PATH, a fact the harness holds, and only in a core the desktop started: `chat`
+and every benchmark are unchanged.
+Tried against LMMS 1.2.2 with FluidR3_GM on 2026-11-18: it rendered projects holding a
+synth, the drum kit and SoundFont instruments, plain and compressed, to wav, ogg and mp3,
+none silent, and opened one in its window. It refuses flac, so the tool does not offer
+it. At LMMS's own levels the SoundFont piano came out about a tenth as loud as a saw
+chord or the kick (RMS 0.04 against 0.2-0.5) and five tracks together clipped 1.4% of the
+samples; the synths now play at half level, the samples at 60 and the SoundFont at gain
+3, which puts every instrument between 0.07 and 0.16 and the clipping at 0.25%. Shown in
+the real app on the QA rig: a write, a render by the real LMMS and a read, each drawn as
+its row. Lab: `tests/tools/test_lmms_tool.py`, with a fake runner in place of LMMS, and
+one test that renders with the real program where it is installed. Owed: whether a model
+writes music a person keeps, and how many calls a song takes.
 
 **The connection form lists only the Claude API** (decided by the user on 2026-10-31: "de
 momento en este listado solo deja la API de Claude"). The other services stay defined in

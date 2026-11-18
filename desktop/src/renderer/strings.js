@@ -45,6 +45,8 @@ const VERBS = {
   delegate: { gerund: 'Subagente:', past: 'Subagente investigó:', failed: 'El subagente no terminó:', done: 'Subagente terminó:' },
   // The model's own task list (`todo`): the row opens to the list as it wrote it.
   todo: { gerund: 'Actualizando la lista de tareas', past: 'Actualizó la lista de tareas', failed: 'No pudo actualizar la lista de tareas' },
+  // Music written as an LMMS project (`lmms`); its file is the row's target.
+  lmms: { gerund: 'LMMS:', past: 'LMMS:', failed: 'LMMS falló:' },
   // Not a model tool: the core's build gate, which compiles what the turn changed before
   // it accepts the answer (`loop/engine.py`, `_BUILD_GATE_UI_NAME`).
   build: { gerund: 'Compilando', past: 'Compiló', failed: 'Compiló' },

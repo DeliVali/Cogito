@@ -72,6 +72,13 @@ local model does good work. Every harness change is kept or reverted by a measur
   a `sudo` command, it asks with the exact line, runs it in a tab where you type the
   password, and reads what it printed. A shell block in a reply has a ▶ that runs it there.
 
+### Music with LMMS (app only)
+
+- `lmms` writes notes as an [LMMS](https://lmms.io) project you open in LMMS to hear,
+  see in the piano roll and edit. It reads back what you changed, keeps what it was not
+  asked to touch, and renders the song to an audio file. Install LMMS yourself; Cogito
+  does not ship it.
+
 ### Long work (app only)
 
 - A turn has no time or step limit. It ends when the model answers, when it loops, or when
