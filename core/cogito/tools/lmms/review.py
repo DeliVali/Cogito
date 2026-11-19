@@ -30,6 +30,10 @@ _MISSES = 3
 _FIT = 0.25
 #: How much better a moved track must fit, as a share of its sound, to call it moved.
 _GAIN = 0.2
+#: A moved track must then fit this well, over at least this many bars: a sparse line
+#: of a few notes fits better at some shift by chance (seen on a bell line of eight notes).
+_MOVED_FIT = 0.7
+_MOVED_BARS = 4
 #: Tried on a track that misses its chords: a miscounted length moves everything after
 #: it by this much.
 _SHIFTS = (-96, -48, -24, 24, 48, 96)
@@ -65,6 +69,8 @@ class Voice:
     instrument: str
     notes: tuple[score.Note, ...]
     kit: bool
+    #: Whether its notes count as harmony: not for noise or a played recording.
+    pitched: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,10 +98,11 @@ def review(view: mmp.ProjectView) -> Review:
                 drums=_PIECES if track.instrument in (mmp.DRUM_KIT, mmp.SLICES) else frozenset(),
             )),
             track.instrument in (mmp.DRUM_KIT, mmp.SLICES),
+            track.pitched,
         )
         for track in view.tracks if not track.muted
     ]
-    pitched = [voice for voice in voices if not voice.kit and voice.notes]
+    pitched = [voice for voice in voices if not voice.kit and voice.pitched and voice.notes]
     kits = [voice for voice in voices if voice.kit and voice.notes]
     count = max(view.bars, 1)
     problems: list[str] = []
@@ -319,10 +326,12 @@ def _drift(voices: list[Voice], bar: int, count: int, key: str) -> list[str]:
                 before, before_moved = _mean(plain[:start]), _mean(moved[:start])
                 if after is None or after_moved is None or after_moved - after < _GAIN:
                     continue
+                if after_moved < _MOVED_FIT:
+                    continue
                 if before is not None and before_moved is not None and before < before_moved:
                     continue
                 span = sum(value is not None for value in plain[start:])
-                if span >= _MISSES and (best is None or (after_moved - after) * span > best[0]):
+                if span >= _MOVED_BARS and (best is None or (after_moved - after) * span > best[0]):
                     best = ((after_moved - after) * span, shift, start)
         if best is not None:
             beats = best[1] / score.TICKS_PER_BEAT

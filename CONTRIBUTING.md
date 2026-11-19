@@ -170,7 +170,7 @@ hook rejects new top-level files that are not listed.
 | `core/cogito/tools/desktop/` | `computer`: seeing the screen and using the mouse and keyboard, through the desktop's portals (Screenshot, RemoteDesktop with screen sharing) on Linux, and opening programs, files and addresses through their desktop entries (`launch.py`) |
 | `core/cogito/tools/terminal/` | `run_in_terminal` and `read_terminal`, and the terminal tabs the app shows beside «Hilo»: the person's own shell on a PTY (POSIX), its prompt marks, and a screen model the model reads |
 | `core/cogito/tools/browser/` | `browser`: web pages the model opens in the app's own tabs and uses by their elements' refs, and their HTML, scripts, network, console and storage, through the desktop's main process (`server/browsers.py` carries each named operation there and back) |
-| `core/cogito/tools/lmms/` | `lmms`: notes the model writes as text (`score.py`), made into an LMMS project the person opens and edits (`mmp.py`), LMMS's presets and synths the model designs (`sounds.py`), recorded sound played, sliced or placed as clips (`samples.py`), the notes read back as music and checked (`review.py`), and LMMS run to render it or open it (`program.py`). LMMS is the person's install, never shipped |
+| `core/cogito/tools/lmms/` | `lmms`: notes the model writes as text (`score.py`), made into an LMMS project the person opens and edits (`mmp.py`), LMMS's presets and synths the model designs (`sounds.py`), recorded sound played, sliced or placed as clips (`samples.py`), effects and automation (`mix.py`), the notes read back as music and checked (`review.py`), and LMMS run to render it or open it (`program.py`). LMMS is the person's install, never shipped |
 | `core/cogito/tools/songstudy/` | `study_song`: how a recording is built (tempo, beats, key, a chord a bar, sections, the drum pattern), measured from its samples with numpy (`analyze.py`), read through the person's ffmpeg (`audio.py`). It returns no melody |
 | `core/cogito/tools/mcp/` | MCP servers' tools: the stdio, HTTP and container (`docker run`) clients, OAuth sign-in for remote servers, the hub that registers every server tool and picks which few each step shows (`mcp_find` included), each server's tool list from its last start (`catalog.py`), the model's `mcp_add` (`install.py`), a project's `.mcp.json` and its approvals (`project.py`) and the import of other clients' servers (`imports.py`) |
 | `core/cogito/tools/builtin_skills/` | Agent Skills that ship with Cogito, one folder each with its `SKILL.md` (how to add an MCP server or a skill to Cogito; how to find and remove dead code) |
@@ -2262,6 +2262,46 @@ know: sampling someone else's song copies that audio, unlike studying its style,
 that choice is the person's. `lmms`'s definition is now about 930 tokens a step. Lab:
 `tests/tools/test_lmms_tool.py`. Owed: slices cut
 where the hits are (the study finds beats; nothing connects the two yet).
+
+**In the app, `lmms` writes effects and automation** (asked by the person on
+2026-11-18, with a modular ambient patch and an orchestral arrangement full of volume and
+controller curves as the references). Read on 2026-11-18, LMMS 1.2.2's sources and its
+own demo projects dumped with `lmms dump`: an `<fxchain>` holds `<effect name wet>`
+elements with each effect's controls (the `*Controls.cpp` of ReverbSC, Delay, Eq,
+DualFilter, dynamics_processor, waveshaper, Bitcrush, Flanger, stereo_enhancer,
+BassBooster); the mixer's channel 0 is the master; and an automated knob stops being
+an attribute and becomes a child element with an id, which an `<automationpattern>` on
+a track of type 5 names in its `<object>` (the demos' `mastervol`). In
+`tools/lmms/mix.py`:
+
+- a track's `effects` and the song's `master_effects`: reverb, delay (in beats), eq,
+  filter, compressor, distortion, bitcrush, flanger, widen, bassboost, in the model's
+  units, with `mix`. They are LMMS's built-in effects, so they exist on every install;
+  LADSPA and other plugins are not reached yet. The compressor and the distortion are
+  LMMS's curve effects with the curve drawn here.
+- `automation`: a list of {target, points, curve}, the target being `tempo`, `master
+  volume`, or a track and its `volume`, `pan`, `pitch`, `cutoff`, `resonance` or one of
+  its synth's own attributes; points are `BEAT:VALUE` in the value's unit. Each lives
+  on its own track named `~ target`, replaced when written again and removed by empty
+  points, which also puts the knob back as an attribute.
+
+Measured against LMMS 1.2.2 on 2026-11-18, one saw note against the same note through
+each effect: reverb and delay leave a tail where the dry note leaves none; the eq's
+high cut and the filter take the spectral centroid from 2,795 Hz to about 300; the
+compressor lowers the level; distortion came out ten times louder at LMMS's own output
+gain and is written at 0.3. A cutoff moving from 200 to 8,000 Hz took the centroid from
+646 to 2,466 Hz over eight seconds where the same pad without it stayed at 183; a
+volume curve rose and fell as written; a tempo step from 60 to 240 put the kicks a
+second and then a quarter second apart. Shown in the real app on the QA rig: a
+one-minute soundscape of designed pads, noise, delay and reverb with a cutoff and a
+master volume curve, written, checked and rendered. That run also changed the check:
+a noise track and a played sample no longer count as harmony, and a track is called
+moved only when it then fits over four bars or more, after a sparse bell line was
+called miscounted by chance. `lmms`'s definition is about 1,040 tokens a step; the
+vocabulary of sounds, samples, effects and automation (about 930 tokens) is in
+`sounds`, asked for when needed. Lab: `tests/tools/test_lmms_tool.py`. Owed: effects
+by LADSPA, LV2 or VST, sends between mixer channels, and whether a model mixes well by
+numbers alone.
 
 **The connection form lists only the Claude API** (decided by the user on 2026-10-31: "de
 momento en este listado solo deja la API de Claude"). The other services stay defined in

@@ -82,6 +82,8 @@ local model does good work. Every harness change is kept or reverted by a measur
   designs: oscillators, envelope, filter and LFO. A render says when the mix clips.
 - A track can play an audio file as an instrument, cut it into slices to reorder, or
   place it as clips on the timeline, from your files or LMMS's sample library.
+- Tracks and the whole song take effects (reverb, delay, eq, compressor, distortion and
+  more), and values move over time: a filter that opens, a fade, a tempo change.
 - `lmms` also checks what it wrote: the key and chords its notes add up to, and what
   looks wrong (a miscounted bar, a bass note outside the chord, clashing notes, an
   instrument out of its range). Given a reference recording, it says when the piece is

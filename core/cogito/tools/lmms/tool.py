@@ -31,7 +31,7 @@ from cogito.provider.base import PayloadShape, Provenance, Reproducibility, Rete
 from cogito.tools.base import ToolContext, ToolResult, parameters
 from cogito.tools.project_files import resolve_path, unwritable_message
 
-from . import mmp, program, review, samples, score, sounds
+from . import mix, mmp, program, review, samples, score, sounds
 
 _ACTIONS = ("write", "read", "check", "sounds", "render", "open")
 _SUFFIXES = (".mmp", ".mmpz")
@@ -67,8 +67,9 @@ _DESCRIPTION = (
     "- sounds: lists those presets and LMMS's samples (with `query`, the ones matching, "
     "or one preset's attributes) and says how a track's `sound` designs a synth "
     "(oscillators, envelope, filter, LFO) and how its `sample` plays an audio file, cuts "
-    "it into slices or places it as clips. Call it before choosing sounds for a style; it "
-    "needs no `path`."
+    "it into slices or places it as clips, and how `effects` (reverb, delay, eq, "
+    "compressor...) and `automation` (a value moving over the song, like a filter "
+    "opening) are written. Call it before choosing sounds for a style; it needs no `path`."
 )
 
 
@@ -126,6 +127,10 @@ class LmmsTool:
                                 "name": {"type": "string"},
                                 "instrument": {"type": "string"},
                                 "notes": {"type": "string"},
+                                "effects": {
+                                    "type": "array",
+                                    "description": "The track's effects; see action sounds.",
+                                },
                                 "sample": {
                                     "description": "An audio file to play, slice or place "
                                     "as clips; see action sounds.",
@@ -150,6 +155,15 @@ class LmmsTool:
                         "type": "string",
                         "enum": list(program.FORMATS),
                         "description": "render: the audio file's format. ogg by default.",
+                    },
+                    "master_effects": {
+                        "type": "array",
+                        "description": "write: effects on the whole song.",
+                    },
+                    "automation": {
+                        "type": "array",
+                        "description": "write: values that move over the song, each "
+                        "{target, points, curve}; see action sounds.",
                     },
                     "query": {
                         "type": "string",
@@ -195,7 +209,7 @@ class LmmsTool:
                 library = samples.listing(asked, samples.library_dirs(self._find()))
                 if asked and library and text.startswith("No preset matches"):
                     text = ""
-                extra = [samples.HELP, *library] if not asked else library
+                extra = [samples.HELP, mix.HELP, *library] if not asked else library
                 return ToolResult(content="\n\n".join(part for part in (text, *extra) if part))
             except sounds.SoundError as exc:
                 return ToolResult.error(str(exc), "bad_preset")
@@ -286,7 +300,20 @@ class LmmsTool:
                 "`notes` (or a `sample` with `clips`).",
                 "invalid_arguments",
             )
-        if existed and not changes and not remove and tempo is None and numerator is None:
+        master, moves = arguments.get("master_effects"), arguments.get("automation")
+        for name in ("master_effects", "automation"):
+            given = arguments.get(name)
+            if isinstance(given, str) and given.strip().startswith(("[", "{")):
+                try:
+                    given = json.loads(given)
+                except ValueError:
+                    return ToolResult.error(f"`{name}` is a list of objects.", "invalid_arguments")
+                if name == "master_effects":
+                    master = given
+                else:
+                    moves = given
+        nothing = not changes and not remove and tempo is None and numerator is None
+        if existed and nothing and master is None and moves is None:
             return ToolResult.error(
                 "Nothing to change: give `tracks`, `remove`, `tempo` or `time_signature`.",
                 "invalid_arguments",
@@ -310,10 +337,12 @@ class LmmsTool:
                     Path(context.project_root), samples.library_dirs(self._find()),
                     self._seconds,
                 ),
+                master_effects=master, automation=moves,
             )
             data = mmp.dump(root, path)
         except (
-            mmp.ProjectError, score.ScoreError, sounds.SoundError, samples.SampleError
+            mmp.ProjectError, score.ScoreError, sounds.SoundError, samples.SampleError,
+            mix.MixError,
         ) as exc:
             return ToolResult.error(str(exc), "invalid_arguments")
         try:
@@ -511,8 +540,19 @@ def _track_changes(raw: Any) -> list[mmp.TrackChange]:
             pan=_ranged(fields.get("pan"), -100, 100, f"Track `{name}`: `pan`"),
             sound=sound,
             sample=fields.get("sample"),
+            effects=_listed(fields.get("effects"), name),
         ))
     return changes
+
+
+def _listed(raw: Any, name: str) -> Any:
+    """A track's `effects`, read from JSON text where a model sent it so."""
+    if isinstance(raw, str) and raw.strip().startswith(("[", "{")):
+        try:
+            return json.loads(raw)
+        except ValueError:
+            raise ValueError(f"Track `{name}`: `effects` is a list of objects.") from None
+    return raw
 
 
 def _places(change: mmp.TrackChange) -> bool:
@@ -565,15 +605,21 @@ def _described(path: Path, view: mmp.ProjectView) -> str:
         f"{_clock(view.seconds)}, {len(view.tracks)} tracks."
     ]
     for track in view.tracks:
-        mix = "".join(
+        level = "".join(
             f", {label} {value}"
             for label, value, default in (("volume", track.volume, "100"), ("pan", track.pan, "0"))
             if value != default
         )
         lines.append(
-            f"\n## {track.name} ({track.instrument}{mix}{', muted' if track.muted else ''}), "
+            f"\n## {track.name} ({track.instrument}{level}{', muted' if track.muted else ''}), "
             f"{track.count} notes\n{track.notes or '(no notes)'}"
         )
+        if track.effects:
+            lines.append(f"Effects: {track.effects}")
+    if view.master_effects:
+        lines.append(f"\nEffects on the whole song: {view.master_effects}")
+    if view.automation:
+        lines.append("\nAutomation:\n" + "\n".join(f"- {line}" for line in view.automation))
     if view.other:
         lines.append(
             "\nTracks this tool leaves as they are (samples, beats, automation): "

@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Any
 from xml.etree import ElementTree as ET
 
-from . import samples, score, sounds
+from . import mix, samples, score, sounds
 
 #: LMMS track types (include/Track.h).
 INSTRUMENT_TRACK = "0"
@@ -152,6 +152,8 @@ class TrackChange:
     sound: Mapping[str, Any] | None = None
     #: Recorded sound to play, slice or place (`samples.plan`), or None.
     sample: Any = None
+    #: The track's effect chain (`mix.chain`); an empty list clears it; None keeps it.
+    effects: Any = None
 
 
 @dataclass(slots=True)
@@ -264,7 +266,7 @@ def set_head(
         ("bpm", tempo), ("timesig_numerator", numerator), ("timesig_denominator", denominator)
     ):
         if value is not None:
-            head.set(name, str(value))
+            mix.set_value(head, name, str(value))
         elif head.get(name) is None and head.find(name) is None:
             head.set(name, {"bpm": "120"}.get(name, "4"))
 
@@ -277,6 +279,8 @@ def apply(
     font: str = "",
     presets: Sequence[Path] = (),
     sampling: samples.Sampling | None = None,
+    master_effects: Any = None,
+    automation: Any = None,
 ) -> Applied:
     """Make ``tracks`` so in ``root``, and take ``remove`` out. Everything a call does
     not name is left as it is."""
@@ -306,6 +310,16 @@ def apply(
             _apply_kit(container, change, done)
         else:
             _apply_pitched(container, change, existing, font, done, presets)
+        if change.effects is not None:
+            made = mix.chain(change.effects, _head(root)[0], f"Track `{change.name}`")
+            for track in _tracks_named(container, change.name) + _kit_tracks(
+                container, change.name
+            ):
+                holder = track.find("instrumenttrack")
+                if holder is None:
+                    holder = track.find("sampletrack")
+                if holder is not None:
+                    _put_chain(holder, made)
     for name in remove:
         gone = _tracks_named(container, name) + _kit_tracks(container, name)
         if not gone:
@@ -316,8 +330,117 @@ def apply(
         for track in gone:
             container.remove(track)
         done.removed.append(name)
+    if master_effects is not None:
+        _put_chain(_master(root), mix.chain(master_effects, _head(root)[0], "master_effects"))
+    if automation is not None:
+        _automate(root, container, automation)
     done.ticks = length(root)
     return done
+
+
+def _has(element: ET.Element | None, name: str) -> bool:
+    """Whether an element holds a knob of that name, plain or automated."""
+    return element is not None and (name in element.attrib or element.find(name) is not None)
+
+
+def _put_chain(holder: ET.Element, made: ET.Element) -> None:
+    """Replace a holder's effect chain with a copy of ``made``."""
+    for old in holder.findall("fxchain"):
+        holder.remove(old)
+    holder.append(ET.fromstring(ET.tostring(made)))
+
+
+def _master(root: ET.Element) -> ET.Element:
+    """The mixer's master channel, made where a project has no mixer yet."""
+    song = root.find("song")
+    assert song is not None
+    mixer = song.find("fxmixer")
+    if mixer is None:
+        mixer = ET.SubElement(song, "fxmixer")
+    for channel in mixer.findall("fxchannel"):
+        if channel.get("num") == "0":
+            return channel
+    return ET.SubElement(mixer, "fxchannel", num="0", muted="0", volume="1", name="Master",
+                         soloed="0")
+
+
+def _automate(root: ET.Element, container: ET.Element, raw: Any) -> None:
+    if isinstance(raw, Mapping):
+        raw = [raw]
+    if not isinstance(raw, list) or len(raw) > 64:
+        raise ProjectError("`automation` is a list of {target, points, curve}.")
+    _tempo, numerator, denominator = _head(root)
+    bar = score.TICKS_PER_BEAT * 4 * numerator // max(1, denominator)
+    for item in raw:
+        if not isinstance(item, Mapping) or not isinstance(item.get("target"), str):
+            raise ProjectError(
+                "Each `automation` is an object like {\"target\": \"Pad cutoff\", "
+                "\"points\": \"0:300 16:2500\"}."
+            )
+        target = " ".join(item["target"].split())
+        places, low, high = _places(root, container, target)
+        there = mix.automate(
+            root, target, places, item.get("points"), item.get("curve"), low, high, bar
+        )
+        if there and target.casefold().endswith(" cutoff"):
+            # A cutoff that moves is only heard with the filter on.
+            for element, _attribute in places:
+                element.set("fwet", "1")
+
+
+def _places(
+    root: ET.Element, container: ET.Element, target: str
+) -> tuple[list[tuple[ET.Element, str]], float, float]:
+    """The knobs a target names, and the range their values lie in."""
+    head = root.find("head")
+    folded = target.casefold()
+    whole = {
+        "tempo": ("bpm", 10.0, 999.0), "bpm": ("bpm", 10.0, 999.0),
+        "master volume": ("mastervol", 0.0, 200.0),
+        "master pitch": ("masterpitch", -12.0, 12.0),
+    }
+    if folded in whole and head is not None:
+        attribute, low, high = whole[folded]
+        return [(head, attribute)], low, high
+    name, _, what = target.rpartition(" ")
+    tracks = _tracks_named(container, name) + _kit_tracks(container, name) if name else []
+    if not tracks:
+        raise ProjectError(
+            f"`{target}` is not something to automate: it is `tempo`, `master volume`, or "
+            f"a track's name and what moves (`Pad cutoff`). The tracks: "
+            f"{', '.join(_names(container)) or 'none'}."
+        )
+    known = {
+        "volume": ("vol", 0.0, 200.0), "pan": ("pan", -100.0, 100.0),
+        "pitch": ("pitch", -100.0, 100.0),
+        "cutoff": ("fcut", 1.0, 14000.0), "resonance": ("fres", 0.01, 10.0),
+    }
+    places: list[tuple[ET.Element, str]] = []
+    low, high = -1e9, 1e9
+    for track in tracks:
+        holder = track.find("instrumenttrack")
+        if holder is None:
+            holder = track.find("sampletrack")
+        if holder is None:
+            continue
+        if what.lower() in known:
+            attribute, low, high = known[what.lower()]
+            element = holder if attribute in ("vol", "pan", "pitch") else holder.find("eldata")
+        else:
+            attribute = what
+            instrument = holder.find("instrument")
+            inner = instrument.find(instrument.get("name", "")) if instrument is not None else None
+            shaping = holder.find("eldata")
+            element = next((part for part in (inner, shaping) if _has(part, attribute)), None)
+        if element is not None:
+            places.append((element, attribute))
+    if not places:
+        raise ProjectError(
+            f"`{name}` has nothing called `{what}` to automate. A track has `volume`, `pan`, "
+            "`pitch`, `cutoff`, `resonance`, and its synth's own attributes (action sounds "
+            "with a preset's name lists them)."
+        )
+    return places, low, high
 
 
 def _apply_pitched(
@@ -577,6 +700,10 @@ class TrackView:
     muted: bool
     notes: str
     count: int
+    #: The track's effects by name, in order.
+    effects: str = ""
+    #: False for a track whose notes are not pitches one hears: noise, a played sample.
+    pitched: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -589,6 +716,9 @@ class ProjectView:
     tracks: tuple[TrackView, ...]
     #: Tracks this tool does not write: samples, beats, automation.
     other: tuple[str, ...]
+    #: Each automation this tool wrote: `TARGET: points (curve)`.
+    automation: tuple[str, ...] = ()
+    master_effects: str = ""
 
 
 def describe(root: ET.Element) -> ProjectView:
@@ -608,6 +738,8 @@ def describe(root: ET.Element) -> ProjectView:
             files = ", ".join(dict.fromkeys(Path(clip.get("src", "")).name for clip in clips))
             other.append(f"{name} (audio clips of {files or 'nothing'} at beats {beats})")
             continue
+        if track.get("type") == mix.AUTOMATION_TRACK and name.startswith(mix.MARK):
+            continue
         if track.get("type") != INSTRUMENT_TRACK:
             other.append(name)
             continue
@@ -621,9 +753,10 @@ def describe(root: ET.Element) -> ProjectView:
         holder = track.find("instrumenttrack")
         tracks.append(TrackView(
             name, _instrument_name(track),
-            holder.get("vol", "100") if holder is not None else "100",
-            holder.get("pan", "0") if holder is not None else "0",
+            mix.value(holder, "vol", "100"), mix.value(holder, "pan", "0"),
             track.get("muted") == "1", score.write(notes), len(notes),
+            mix.describe(holder.find("fxchain") if holder is not None else None),
+            _pitched(track),
         ))
     for kit, members in kits.items():
         notes = [
@@ -634,10 +767,10 @@ def describe(root: ET.Element) -> ProjectView:
         holder = members[0][1].find("instrumenttrack")
         tracks.append(TrackView(
             kit, SLICES if all(_SLICE.fullmatch(drum) for drum, _track in members) else DRUM_KIT,
-            holder.get("vol", "100") if holder is not None else "100",
-            holder.get("pan", "0") if holder is not None else "0",
+            mix.value(holder, "vol", "100"), mix.value(holder, "pan", "0"),
             all(track.get("muted") == "1" for _drum, track in members),
             score.write(notes), len(notes),
+            mix.describe(holder.find("fxchain") if holder is not None else None),
         ))
     tempo, numerator, denominator = _head(root)
     ticks = length(root)
@@ -647,6 +780,8 @@ def describe(root: ET.Element) -> ProjectView:
         bars=-(-ticks // bar) if bar else 0,
         seconds=ticks / score.TICKS_PER_BEAT * 60 / tempo if tempo else 0.0,
         tracks=tuple(tracks), other=tuple(other),
+        automation=tuple(mix.movements(root)),
+        master_effects=mix.describe(root.find("song/fxmixer/fxchannel[@num='0']/fxchain")),
     )
 
 
@@ -708,6 +843,26 @@ def _instrument_name(track: ET.Element) -> str:
     if kind == "audiofileprocessor" and inner is not None:
         return f"sample {inner.get('src', '')}"
     return kind
+
+
+def _pitched(track: ET.Element) -> bool:
+    """Whether a track's notes sound at the pitches written. Noise has no pitch, and a
+    recording played as an instrument has its own, which the note only moves."""
+    instrument = track.find("instrumenttrack/instrument")
+    if instrument is None:
+        return True
+    if instrument.get("name") == "audiofileprocessor":
+        return False
+    synth = instrument.find("tripleoscillator")
+    if synth is None:
+        return True
+    sounding = [
+        index for index in range(3) if float(mix.value(synth, f"vol{index}", "0") or 0) > 0
+    ]
+    return not sounding or any(
+        mix.value(synth, f"wavetype{index}", "0") != str(sounds.WAVES["noise"])
+        for index in sounding
+    )
 
 
 def _source(track: ET.Element) -> str:
