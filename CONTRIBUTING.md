@@ -170,10 +170,10 @@ hook rejects new top-level files that are not listed.
 | `core/cogito/tools/desktop/` | `computer`: seeing the screen and using the mouse and keyboard, through the desktop's portals (Screenshot, RemoteDesktop with screen sharing) on Linux, and opening programs, files and addresses through their desktop entries (`launch.py`) |
 | `core/cogito/tools/terminal/` | `run_in_terminal` and `read_terminal`, and the terminal tabs the app shows beside «Hilo»: the person's own shell on a PTY (POSIX), its prompt marks, and a screen model the model reads |
 | `core/cogito/tools/browser/` | `browser`: web pages the model opens in the app's own tabs and uses by their elements' refs, and their HTML, scripts, network, console and storage, through the desktop's main process (`server/browsers.py` carries each named operation there and back) |
-| `core/cogito/tools/lmms/` | `lmms`: notes the model writes as text (`score.py`), made into an LMMS project the person opens and edits (`mmp.py`), LMMS's presets and synths the model designs (`sounds.py`), recorded sound played, sliced or placed as clips (`samples.py`), effects and automation (`mix.py`), the LADSPA plugins installed and one as an effect (`ladspa.py`), the notes read back as music and checked (`review.py`), and LMMS run to render it or open it (`program.py`). LMMS is the person's install, never shipped |
+| `core/cogito/tools/lmms/` | `lmms`: notes the model writes as text (`score.py`), made into an LMMS project the person opens and edits (`mmp.py`), LMMS's presets and synths the model designs (`sounds.py`), recorded sound played, sliced or placed as clips (`samples.py`), effects and automation (`mix.py`), the LADSPA plugins installed and one as an effect (`ladspa.py`), a guide to each genre (`styles.py`), the notes read back as music and checked (`review.py`), and LMMS run to render it or open it (`program.py`). LMMS is the person's install, never shipped |
 | `core/cogito/tools/songstudy/` | `study_song`: how a recording is built (tempo, beats, key, a chord a bar, sections, the drum pattern), measured from its samples with numpy (`analyze.py`), read through the person's ffmpeg (`audio.py`). It returns no melody |
 | `core/cogito/tools/mcp/` | MCP servers' tools: the stdio, HTTP and container (`docker run`) clients, OAuth sign-in for remote servers, the hub that registers every server tool and picks which few each step shows (`mcp_find` included), each server's tool list from its last start (`catalog.py`), the model's `mcp_add` (`install.py`), a project's `.mcp.json` and its approvals (`project.py`) and the import of other clients' servers (`imports.py`) |
-| `core/cogito/tools/builtin_skills/` | Agent Skills that ship with Cogito, one folder each with its `SKILL.md` (how to add an MCP server or a skill to Cogito; how to find and remove dead code) |
+| `core/cogito/tools/builtin_skills/` | Agent Skills that ship with Cogito, one folder each with its `SKILL.md` (how to add an MCP server or a skill to Cogito; how to find and remove dead code; how to compose music with `lmms`) |
 | `core/cogito/context/` | Token ledger, per-tool budgets, offload, compaction, prompt assembly |
 | `core/cogito/guard/` | The two rules: never delete without approval, never touch OS files or the session's own `.cogito/`. In the app only: asking before a system package install, full upgrade or AUR install, and running the approved request; the composer's automatic mode (`auto.py`), which answers those questions except the ones it keeps asking |
 | `core/cogito/guard/platform/` | Per-OS protected paths and package-ownership oracles, and the distribution and package managers the app states to the model |
@@ -2334,6 +2334,52 @@ Plate2x2 and tap_stereo_echo leave a tail where the dry note leaves none. Shown 
 real app on the QA rig: reverbs searched, one's controls read, a piano through a TAP
 echo and Calf Reverb rendered. Not done: LV2 and VST, which need Carla or a VST bridge
 this install lacks, and plugin instruments. Lab: `tests/tools/test_lmms_tool.py`.
+
+**In the app, `lmms` has a guide to each genre, and a skill says how to compose**
+(asked by the person on 2026-11-18: "que sepa manejar todo hasta orquestal ... de todos
+los estilos que yo quiera", "es importante que lo haga sin confundirse"). A model knows
+a genre by name and mixes its details with its neighbours'. Two things:
+
+- `style` (`tools/lmms/styles.py`): 22 guides (synthwave, lo-fi hip hop, boom bap,
+  trap, house, techno, trance, drum and bass, dubstep, ambient, pop, rock, funk, disco,
+  reggae, reggaeton, cumbia, bossa nova, jazz, blues, cinematic orchestral, chiptune),
+  each the tempo, the feel, the harmony and chord loops as degrees, one bar of drums as
+  a grid and as the notes of a `drums` track (swung styles as notes, since a grid
+  cannot say them), the bass, the sounds as this tool makes them, the form and the
+  production. About 320 tokens a guide, returned one at a time, found by the names a
+  person uses in English or Spanish; a genre without one gets the list and is told to
+  search the web or study a recording.
+- the built-in skill `compose-music`: know the style first (`style`, the web, or
+  `study_song` on a reference, never its tune), choose the sounds, write in sections
+  counting each bar's beats, `check` after every write, render and read the level, hand
+  it over and ask. It is hidden where `lmms` is not registered
+  (`cli._skills_hidden`), as a skill for a switched-off MCP server is.
+
+Where the guides come from, read on 2026-11-18 by a research pass that opened pages and
+marked what it could not find: Mode Audio, Attack Magazine, MusicRadar, Native
+Instruments, Sound on Sound, Splice, Hooktheory, LANDR and Wikipedia's genre articles;
+each guide names its pages in `sources`. The pass found tempo and a drum pattern for
+most of the electronic genres, and little for others: for pop and rock no tempo, for
+cumbia and bossa nova no step-level rhythm, for cinematic orchestral only search
+snippets. What a guide says without a source is listed in its `unsourced` field and is
+common practice written from memory, which section 6b calls a hypothesis: the kick and
+hat of some patterns, most chord loops, most forms' bar counts, and nearly all of the
+cumbia, bossa nova and orchestral guides. Sources also disagreed (synthwave's snare,
+house's closed hat, reggae's rockers); one reading was taken. No guide is measured: a
+piece written from one has not been judged against its genre by anyone.
+
+The skill loads by itself on 12 of 14 requests for music and none of 19 other requests,
+over the seventeen skills on the author's machine; with only the three built-in skills
+no message reaches the floor for any of them, the limit `tools/skills.py` already
+states. Shown in the real app on the QA rig: "hazme una canción de synthwave" loaded
+the skill, and the guide was read, a sixteen-bar piece written, checked and rendered.
+That run found a mistake in the check and in `study_song`: a loop of `Am F G F` was
+read as `Am F`, since a two-bar loop fits three bars of four; the shortest loop that
+fits about as well as the best is now taken (a deterministic fix). `lmms`'s definition
+is about 1,110 tokens a step. Lab: `tests/tools/test_lmms_tool.py`, which also checks
+that every drum line of a guide parses and fills its bars and that every preset a
+guide names is one LMMS ships. Owed: the unsourced parts read from a source, and pieces
+written from the guides judged by a person.
 
 **The connection form lists only the Claude API** (decided by the user on 2026-10-31: "de
 momento en este listado solo deja la API de Claude"). The other services stay defined in

@@ -31,9 +31,9 @@ from cogito.provider.base import PayloadShape, Provenance, Reproducibility, Rete
 from cogito.tools.base import ToolContext, ToolResult, parameters
 from cogito.tools.project_files import resolve_path, unwritable_message
 
-from . import ladspa, mix, mmp, program, review, samples, score, sounds
+from . import ladspa, mix, mmp, program, review, samples, score, sounds, styles
 
-_ACTIONS = ("write", "read", "check", "sounds", "render", "open")
+_ACTIONS = ("write", "read", "check", "sounds", "style", "render", "open")
 _SUFFIXES = (".mmp", ".mmpz")
 #: LMMS's own tempo range (include/Song.h: MinTempo 10, MaxTempo 999).
 _TEMPO = (10, 999)
@@ -64,6 +64,9 @@ _DESCRIPTION = (
     + ", ".join(mmp.SYNTHS)
     + "; General MIDI names (piano, organ, guitar, bass_guitar, strings, choir, trumpet, "
     "flute, ...) or `gm:N`; or any preset of LMMS's synths by name.\n"
+    "- style: with `query`, a genre's conventions written for this tool (tempo, feel, "
+    "chords, the drum pattern as notes, bass, sounds, form, production); without it, the "
+    "genres there is a guide for. Call it before writing in a genre; it needs no `path`.\n"
     "- sounds: lists those presets and LMMS's samples (with `query`, the ones matching, "
     "or one preset's attributes) and says how a track's `sound` designs a synth "
     "(oscillators, envelope, filter, LFO) and how its `sample` plays an audio file, cuts "
@@ -171,7 +174,8 @@ class LmmsTool:
                     },
                     "query": {
                         "type": "string",
-                        "description": "sounds: words of a preset's name, or its name.",
+                        "description": "sounds: words of a preset's name, or its name. "
+                        "style: the genre.",
                     },
                     "reference": {
                         "type": "string",
@@ -210,6 +214,18 @@ class LmmsTool:
             return ToolResult.error(
                 f"`action` must be one of: {', '.join(_ACTIONS)}.", "invalid_arguments"
             )
+        if action == "style":
+            asked = arguments.get("query")
+            asked = asked.strip() if isinstance(asked, str) else ""
+            found = styles.find(asked) if asked else None
+            if found is not None:
+                return ToolResult(content=styles.text(found))
+            return ToolResult(content=(
+                (f"There is no guide for `{asked}`. " if asked else "")
+                + f"Guides: {styles.listing()}. For a genre without one, search the web for "
+                "its tempo, drum pattern, chords and instruments before writing, or study "
+                "a recording of it with study_song."
+            ))
         if action == "sounds":
             query = arguments.get("query")
             try:

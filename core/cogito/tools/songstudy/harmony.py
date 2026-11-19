@@ -66,7 +66,10 @@ def degrees(bar: str, root: int, minor: bool) -> str:
 
 
 def loop(bars: Sequence[str]) -> tuple[list[str], float] | None:
-    """The shortest run of bars that ``bars`` repeats, and how many times, or None."""
+    """The run of bars that ``bars`` repeats, and how many times, or None. Of the
+    lengths tried, the shortest that fits about as well as the best: `Am F G F` fits a
+    two-bar loop in three bars of four, and a four-bar one in all of them."""
+    fits: list[tuple[float, list[str]]] = []
     for length in (1, 2, 4, 8):
         if length > 1 and len(bars) < 2 * length:
             break
@@ -75,9 +78,12 @@ def loop(bars: Sequence[str]) -> tuple[list[str], float] | None:
             column = [bar for index, bar in enumerate(bars) if index % length == place]
             pattern.append(max(sorted(set(column)), key=column.count))
         same = sum(bar == pattern[index % length] for index, bar in enumerate(bars))
-        if bars and same >= 0.75 * len(bars):
-            return pattern, len(bars) / length
-    return None
+        fits.append((same / len(bars) if bars else 0.0, pattern))
+    best = max((fit for fit, _pattern in fits), default=0.0)
+    if best < 0.75:
+        return None
+    pattern = next(pattern for fit, pattern in fits if fit >= best - 0.05)
+    return pattern, len(bars) / len(pattern)
 
 
 def progression(bars: Sequence[str]) -> str:

@@ -86,6 +86,9 @@ local model does good work. Every harness change is kept or reverted by a measur
   more), and values move over time: a filter that opens, a fade, a tempo change.
 - The LADSPA effect plugins on your machine are found by themselves and used by name,
   with their own controls; one you install later is found too.
+- A guide for each of 22 genres (tempo, chords, drum pattern, sounds, form) is read
+  before writing in one, and a built-in skill sets the order of work: style, sounds,
+  sections, check, render, ask.
 - `lmms` also checks what it wrote: the key and chords its notes add up to, and what
   looks wrong (a miscounted bar, a bass note outside the chord, clashing notes, an
   instrument out of its range). Given a reference recording, it says when the piece is

@@ -824,6 +824,16 @@ def _mcp_switched_off(settings) -> tuple[str, ...]:
     return tuple(name for name, server in settings.mcp.servers.items() if not server.enabled)
 
 
+def _skills_hidden(settings, in_app: bool) -> tuple[str, ...]:
+    """Names a skill must not mention to be offered: the MCP servers switched off, and
+    LMMS where the `lmms` tool is not registered. A skill for tools the session lacks
+    reads as an invitation to do that work by other means."""
+    hidden = _mcp_switched_off(settings)
+    if not (in_app and _app_owned() and _lmms_wanted()):
+        hidden = (*hidden, "LMMS")
+    return hidden
+
+
 def _mcp_wanted(settings, in_app: bool) -> bool:
     """APP ONLY by default, like the web tools: `chat`, and so every benchmark task,
     registers MCP tools only with `[mcp] in_chat`."""
@@ -3064,7 +3074,9 @@ def _build_engine(
     if _skills_wanted(settings, in_app):
         from cogito.tools.skills import SkillTool, skills_for
 
-        found = skills_for(project_root, Path.home(), switched_off=_mcp_switched_off(settings))
+        found = skills_for(
+            project_root, Path.home(), switched_off=_skills_hidden(settings, in_app)
+        )
         if found:
             skill_tool = SkillTool(
                 found,
@@ -3939,7 +3951,7 @@ class _Skills:
         from cogito.tools.skills import skills_for
 
         found = skills_for(
-            Path(project_root), Path.home(), switched_off=_mcp_switched_off(settings)
+            Path(project_root), Path.home(), switched_off=_skills_hidden(settings, True)
         )
         return {
             "skills": [
