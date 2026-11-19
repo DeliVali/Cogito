@@ -1,17 +1,18 @@
 """APP ONLY: the composer's automatic mode, which answers the guard's questions itself.
 
-With it on, what the guard would put to the person is allowed without a card when nothing
-is lost for good: a deletion that goes to the trash, a system package install, an MCP tool
-that may change something, a line for the person's terminal. What the guard refuses is
-never a question, so it stays refused: operating-system files (`Zone.SYSTEM`, the home
-directory itself and `/` among them) and the session's own `.cogito/`.
+With it on, what the guard would put to the person is allowed without a card: a deletion,
+permanent or to the trash, a system package install, an MCP tool that may change
+something, a line for the person's terminal. What the guard refuses is never a question,
+so it stays refused: operating-system files (`Zone.SYSTEM`, the home directory itself and
+`/` among them), the protected home roots and the session's own `.cogito/`. That refusal
+is the mode's only guardrail for files (the person, 2026-11-18). Adding an MCP server is
+still asked.
 
 With it off, one kind of question is still answered here (`in_project`): a deletion that
-goes to the trash and touches only what is inside the project folder.
-
-Still put to the person (`kept_asking`): whatever destroys for good, and, among what goes
-to the trash, the project folder or all of it, their keys and credentials, Cogito's own
-settings and memory, and a folder directly in their home or all of it.
+goes to the trash and touches only what is inside the project folder. `_beyond_trash` is
+that narrow judgement: it leaves to the person whatever destroys for good, and, among what
+goes to the trash, the project folder or all of it, their keys and credentials, Cogito's
+own settings and memory, and a folder directly in their home or all of it.
 
 Read before choosing (2026-11-03): Claude Code's `bypassPermissions` removes its prompts but
 still asks before removing "the filesystem root, your home directory, and your working
@@ -87,17 +88,12 @@ def _within(path: Path, root: Path) -> bool:
 class AutoMode:
     """One window session's automatic mode: whether it is on, and what it still asks.
 
-    Of the questions about files it answers only those whose loss the trash undoes: a
-    deletion a PATH shim carries out, which reaches the guard with the names the shell
-    already expanded, in the folder the command really ran in. Everything that destroys for
-    good (`/bin/rm`, `find -delete`, `rsync --delete`, `mv`, `>`, `git reset`, a script) is
-    still asked about. Three review rounds on 2026-11-03, each a hunter reproducing
-    commands through the real guard and a skeptic reproducing every finding, found 31
-    spellings of the shell (braces, `~+`, `xargs -I`, a link made earlier in the same
-    command, an option after rsync's destination) that a reading of the command's text
-    took for something else; the shim's expanded names have none of these. Among what
-    goes to the trash, it still asks about the project or all of it, keys and credentials,
-    Cogito's own files, and a folder in the home directory or all of it.
+    On, it asks only about adding an MCP server. Until 2026-11-18 it answered, of the
+    questions about files, only those whose loss the trash undoes, because three review
+    rounds on 2026-11-03 found 31 spellings of the shell that a reading of a command's
+    text took for something else; the person then chose a mode that asks nothing and
+    keeps the guard's refusals. That narrower judgement is still what `in_project` uses
+    with the mode off (`_beyond_trash`).
     """
 
     def __init__(self, project_root: Path, home: Path | None = None) -> None:
@@ -111,11 +107,25 @@ class AutoMode:
         self._cogito = tuple(dict.fromkeys(_resolved(directory) for directory in own))
 
     def kept_asking(self, request: ApprovalRequest) -> str | None:
-        """Why ``request`` is still put to the person, or None to allow it unasked."""
+        """Why ``request`` is still put to the person with the mode on, or None to allow it
+        unasked.
+
+        Every question about files is allowed, permanent ones included (the person,
+        2026-11-18, shown a card for a script that rewrote its own file: "en modo
+        automático no quiero que me haga esas preguntas ... solo los guardrails para no
+        borrar archivos del sistema"). What the guard refuses is never a question and
+        stays refused. The one thing still asked is adding an MCP server."""
         if request.every_time:
             # Adding an MCP server saves a program that runs in every later conversation,
             # chosen by text the model may have read on a page: a standing change, not a
             # call to a server the person already approved.
+            return MCP_SERVER
+        return None
+
+    def _beyond_trash(self, request: ApprovalRequest) -> str | None:
+        """Why ``request`` is more than a deletion the trash undoes, or None. With the mode
+        off, `in_project` answers only what passes this."""
+        if request.every_time:
             return MCP_SERVER
         if request.action in _FILE_ACTIONS and (
             request.recovery != "trash" or not request.from_shim
@@ -175,7 +185,7 @@ class AutoMode:
         a PATH shim's question, with the names the shell expanded, each one strictly inside
         the folder, where it leads and as the entry it is. The folder itself, all of it
         at once, anything outside it and whatever destroys for good are still asked."""
-        if request.action not in _FILE_ACTIONS or self.kept_asking(request) is not None:
+        if request.action not in _FILE_ACTIONS or self._beyond_trash(request) is not None:
             return False
         named = list(self._named(request))
         if not named and not request.within:

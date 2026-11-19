@@ -1155,16 +1155,9 @@ const AUTO_MODE = {
   on: 'Automático',
   offTitle: 'Pregunta antes de borrar, instalar o usar herramientas que hacen cambios',
   onTitle:
-    'Aprueba sin preguntar lo que se puede deshacer. Nunca toca archivos del sistema; pregunta ' +
-    'por lo que no va a la papelera, la carpeta del proyecto, tus credenciales y las carpetas de tu inicio',
+    'No pregunta antes de borrar, instalar o hacer cambios. Nunca toca archivos del sistema',
   failed: 'No se pudo cambiar el modo',
   kept: {
-    permanent: 'El modo automático solo aprueba sin preguntar los borrados que van a la papelera.',
-    project: 'El modo automático pregunta siempre antes de borrar la carpeta del proyecto.',
-    credentials: 'El modo automático pregunta siempre por tus llaves y credenciales.',
-    cogito: 'El modo automático pregunta siempre por la configuración y la memoria de Cogito.',
-    home_folder: 'El modo automático pregunta siempre por una carpeta entera de tu inicio.',
-    unknown: 'El modo automático pregunta siempre cuando no se sabe qué se borraría.',
     mcp_server: 'El modo automático pregunta siempre antes de agregar un servidor MCP.',
   },
 };

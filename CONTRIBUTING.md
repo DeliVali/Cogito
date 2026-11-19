@@ -2381,6 +2381,28 @@ that every drum line of a guide parses and fills its bars and that every preset 
 guide names is one LMMS ships. Owed: the unsourced parts read from a source, and pieces
 written from the guides judged by a person.
 
+**Automatic mode asks nothing about files; the guard's refusals are its guardrail**
+(decided by the person on 2026-11-18, shown a card for a script that rewrote its own file:
+"en modo automático no quiero que me haga esas preguntas ... solo los guardrails para no
+borrar archivos del sistema"; then "sería un modo como el de omitir permisos pero el guard
+rail de que no pueda eliminar archivos del sistema es importante"). This replaces the
+2026-11-03 rule, under which the mode answered only deletions that go to the trash and kept
+a card for whatever destroys for good, the whole project, credentials and home folders.
+With the mode on, `AutoMode.kept_asking` now allows every question the guard puts, permanent
+deletions included; the one question kept is adding an MCP server (`every_time`). What the
+guard refuses was never a question and stays refused in every mode: operating-system and
+package-owned files, `/`, the home directory itself, the protected home roots (`~/.ssh`,
+`~/.gnupg`, the shell's own files, the trash) and the session's `.cogito/`. That is Claude
+Code's `bypassPermissions` and Codex's `approval_policy = "never"` (read 2026-11-03, with
+the entry above), with the refusals kept. What is given up, knowingly: the 31 spellings the
+2026-11-03 rounds found now run unasked, so a command can lose the project, a home folder or
+credentials outside the protected roots for good, and a page the model read can steer it
+there. With the mode off nothing changes: the narrow judgement (`_beyond_trash`) still
+decides what `in_project` answers. Lab: `tests/guard/test_auto_mode.py` (no file question
+kept with the mode on, system files still refused, the MCP question kept),
+`tests/guard/test_auto_mode_shim.py`, `tests/test_cli_auto_mode.py` (fail before). `chat`
+and every benchmark have no window approver, so they are unchanged.
+
 **The connection form lists only the Claude API** (decided by the user on 2026-10-31: "de
 momento en este listado solo deja la API de Claude"). The other services stay defined in
 `connect.PROVIDERS`, so an entry saved with one keeps working; `SHOWN_PROVIDERS` decides

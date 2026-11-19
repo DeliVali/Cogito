@@ -34,9 +34,8 @@ local model does good work. Every harness change is kept or reverted by a measur
   the trash. The folder itself, anything outside it and anything permanent still ask.
 - Operating system files, your keys and the session's own record are refused, not asked.
 - In the app, installing or upgrading system packages needs your approval.
-- «Automático», under the message, answers these questions for you when the loss can come
-  back from the trash. It still asks about anything permanent, the project folder, your
-  credentials, Cogito's own settings and a whole folder in your home.
+- «Automático», under the message, answers these questions for you, permanent deletions
+  included. What is refused stays refused, and adding an MCP server is still asked.
 
 ### Editing and checking
 
