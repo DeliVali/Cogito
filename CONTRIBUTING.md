@@ -170,7 +170,8 @@ hook rejects new top-level files that are not listed.
 | `core/cogito/tools/desktop/` | `computer`: seeing the screen and using the mouse and keyboard, through the desktop's portals (Screenshot, RemoteDesktop with screen sharing) on Linux, and opening programs, files and addresses through their desktop entries (`launch.py`) |
 | `core/cogito/tools/terminal/` | `run_in_terminal` and `read_terminal`, and the terminal tabs the app shows beside «Hilo»: the person's own shell on a PTY (POSIX), its prompt marks, and a screen model the model reads |
 | `core/cogito/tools/browser/` | `browser`: web pages the model opens in the app's own tabs and uses by their elements' refs, and their HTML, scripts, network, console and storage, through the desktop's main process (`server/browsers.py` carries each named operation there and back) |
-| `core/cogito/tools/lmms/` | `lmms`: notes the model writes as text (`score.py`), made into an LMMS project the person opens and edits (`mmp.py`), and LMMS run to render it or open it (`program.py`). LMMS is the person's install, never shipped |
+| `core/cogito/tools/lmms/` | `lmms`: notes the model writes as text (`score.py`), made into an LMMS project the person opens and edits (`mmp.py`), LMMS's presets and synths the model designs (`sounds.py`), recorded sound played, sliced or placed as clips (`samples.py`), the notes read back as music and checked (`review.py`), and LMMS run to render it or open it (`program.py`). LMMS is the person's install, never shipped |
+| `core/cogito/tools/songstudy/` | `study_song`: how a recording is built (tempo, beats, key, a chord a bar, sections, the drum pattern), measured from its samples with numpy (`analyze.py`), read through the person's ffmpeg (`audio.py`). It returns no melody |
 | `core/cogito/tools/mcp/` | MCP servers' tools: the stdio, HTTP and container (`docker run`) clients, OAuth sign-in for remote servers, the hub that registers every server tool and picks which few each step shows (`mcp_find` included), each server's tool list from its last start (`catalog.py`), the model's `mcp_add` (`install.py`), a project's `.mcp.json` and its approvals (`project.py`) and the import of other clients' servers (`imports.py`) |
 | `core/cogito/tools/builtin_skills/` | Agent Skills that ship with Cogito, one folder each with its `SKILL.md` (how to add an MCP server or a skill to Cogito; how to find and remove dead code) |
 | `core/cogito/context/` | Token ledger, per-tool budgets, offload, compaction, prompt assembly |
@@ -2122,6 +2123,145 @@ the real app on the QA rig: a write, a render by the real LMMS and a read, each 
 its row. Lab: `tests/tools/test_lmms_tool.py`, with a fake runner in place of LMMS, and
 one test that renders with the real program where it is installed. Owed: whether a model
 writes music a person keeps, and how many calls a song takes.
+
+**In the app, the model can study a recording to learn how it is built** (asked by the
+person on 2026-11-18: "darle una canción y no una copia pero sí sepa el estilo ... una
+herramienta de investigación para que el modelo sepa cómo hacer alguna canción o algún
+estilo"). The model cannot hear, so `study_song` (`tools/songstudy`) measures an audio
+file and returns text: tempo, beats in a bar, straight or swung, key, the form as
+lettered sections, and per section its chords (as a loop when they repeat, and as degrees
+of the key) and its drum pattern on a sixteen-step grid in three bands. It gives no
+melody and no words, by design: what it returns is what a style is made of, and the
+description tells the model the new piece must be its own. Read on 2026-11-18: librosa
+1.0 (2026-08-11) does all of this and more, and MCP servers that wrap it for a model
+exist (Claud-Ear, beatlyzer, mcp-music-analysis; their READMEs as listed on glama.ai and
+playbooks.com, not run here). It is not taken: it brings numba and scipy for what is a
+few hundred lines of numpy here, by the textbook methods (Ellis 2007 for beats,
+Krumhansl-Kessler profiles for key, triad templates on chroma for chords, bar-to-bar
+novelty for sections; the sources are in `analyze.py`). Chordino, which also matches
+templates, is measured at about 80% chord symbol recall (an ISMIR 2015 paper's figure,
+theirs); this chroma is cruder and its recall is not measured. numpy becomes a
+dependency of the core (17 MB, already locked for the voice extra) and is imported only
+when the tool runs; the audio is read by the person's ffmpeg, local files only.
+
+Measured on 2026-11-18. Songs rendered by LMMS from known notes (five songs, each with
+piano, organ and saw chords): tempo exact on four, the 72 bpm one read at 144 with 72
+named beside it; 3/4 and swing told apart; the chord loop right on the songs with one
+chord a bar, and a beat late on changes under a slow pad; sections right where the drums
+drop out, and a change of chords alone under the same drums is missed. LMMS's own 24 demo
+songs, whose tempo the project file states: 22 rendered with sound; tempo within 2% on 16,
+at half, double or two thirds of it on 6 (the stated tempo named as the other reading on
+4 of those), unrelated on none; one of the 22 was read as 3/4. About half a second a
+song. Their keys and chords have no reference, so those are not measured on real music.
+Shown in the real app on the QA rig. Registered with `lmms` only, in a core the desktop
+started, and where ffmpeg is on PATH: `chat` and every benchmark are unchanged. About 260
+tokens a step. Lab: `tests/tools/test_study_song.py`. Owed: chord and key accuracy on
+annotated recordings, and whether what a model writes after a study sounds like the
+style.
+
+In the same change `lmms`'s `bass` and `sub_bass` sound at the pitch written (they
+played one and two octaves under, so a C2 came out at 16 Hz; found by measuring a
+render, a deterministic fix).
+
+**In the app, `lmms` reads the model's notes back as music and says what looks wrong**
+(asked by the person on 2026-11-18: "que lo haga sin confundirse ... que supiera qué está
+haciendo ... y que cree algo nuevo, no copia de lo que se le pasa como referencia"). The
+model writes notes as text and cannot hear them, so a mistake stays until the person
+hears it. `check` (`tools/lmms/review.py`) counts from the notes, in the words
+`study_song` uses for a recording: the key they fit, a chord for every bar and the loop
+they repeat, the drum pattern, each track's range and bars. Then what can be found
+without hearing: a track that fits the other tracks' chords only when moved a beat or
+two, or that ends a little past the bar the others end on (a length miscounted, the
+slip a long run of notes as text invites); the lowest track starting a bar outside its
+chord; notes of two tracks a semitone apart held together; a General MIDI instrument
+outside its written range (Adler's orchestration ranges); notes outside the key; a
+track that stops before half the song; a note struck again while it sounds; bars where
+nothing plays. Each names the track and the bar. The harness checks, and the model is
+told what it found, as with the open task list (§1b): a prompt asking the model to be
+careful does not find a miscounted beat. With `reference`, an audio file, the piece is
+set beside `study_song`'s measure of it: tempo, key and chord loop (as degrees, started
+on any bar). All three the same is called too close, and the model is told to change the
+key or the loop; the loop alone is named, since many songs share one. No melody is
+compared, because none is ever read from the recording. Read on 2026-11-18: no source
+was found for a symbolic check of this kind given to a model; the checks are the ones a
+theory teacher makes on a score, and the thresholds (a quarter of a bar's sound in the
+chord, a fifth better when moved) are ours, set on test pieces. Shown in the real app on
+the QA rig: a piece written, a wrong bass note named, and "too close" against the
+recording it copied. `lmms`'s definition is now about 760 tokens a step (four characters
+a token). Lab: `tests/tools/test_lmms_tool.py`. Owed: how often its findings are real
+mistakes on what a model writes, and whether pieces need fewer rounds with the person.
+
+**In the app, `lmms` reaches every LMMS synth and lets the model design a sound**
+(asked by the person on 2026-11-18: "una herramienta para generar los sintetizadores ...
+que pudiera manejar varios y que fuera compatible con los plugins ... soy muy fan de los
+sintetizadores y de las baterías", with a modular ambient patch as the reference). Read
+on 2026-11-18, LMMS 1.2.2's sources: presets are `.xpf` files holding a whole
+`<instrumenttrack>` (data/presets; the pre-1.0 ones hold the synth's element itself,
+which `InstrumentTrack::loadTrackSpecificSettings` loads as "compat code"), and every
+instrument track has a volume envelope, a filter, and an envelope and LFO on its cutoff
+(src/core/InstrumentSoundShaping.cpp, EnvelopeAndLfoParameters.cpp, include/Oscillator.h;
+the knob laws are in `sounds.py`). Three things, in `tools/lmms/sounds.py`:
+
+- A track's `instrument` may be any preset by name (`SuperSawLead`, `Monstro/Growl`):
+  the 151 LMMS ships here across twelve synths (TripleOscillator, Monstro, Watsyn,
+  BitInvader, LB302, OpulenZ, Organic, SID, Nescaline, Kicker, Vibed,
+  AudioFileProcessor), and the person's own under `~/lmms/presets`.
+- A track's `sound` designs a synth in the model's units (one to three oscillators with
+  wave, octave, detune and volume; how they modulate each other; attack, decay, sustain
+  and release in seconds; a filter with cutoff in Hz, resonance, an envelope and an LFO
+  in Hz; a tremolo), written on TripleOscillator and on the track's own shaping, so the
+  same fields also shape a preset or a SoundFont instrument. `set` reaches any attribute
+  of any synth by LMMS's own name.
+- `sounds` lists the presets, the ones matching a `query`, or one preset's attributes,
+  and says how `sound` is written. The vocabulary is there and not in the definition,
+  which grew to about 880 tokens a step.
+
+Tried against LMMS 1.2.2 on 2026-11-18: 151 of its 153 presets load and render with
+sound (the two left out are in LMMS 0.0.9's `channelsettings` layout); one render of
+those aborted inside LMMS under eight at once and passed alone. A designed pad, a pluck
+and an FM pair rendered; an oscillator at LMMS's full volume clipped, so `volume` 100 is
+written as 35. A render now also says how loud the file is (silent, quiet, clipping),
+read through ffmpeg where it is installed: three synth tracks at their defaults clipped
+and nothing in the notes shows that. Shown in the real app on the QA rig: presets
+listed, a piece written with a designed pad, a preset and a shaped bass, and rendered.
+Not done, and the person asked for them: effects, automation, external plugins (LV2 and
+VST through Carla or VeSTige), a better orchestral library, and guides by style. Lab:
+`tests/tools/test_lmms_tool.py`. Owed: whether a model's designed sounds are ones a
+person keeps.
+
+**In the app, `lmms` works with recorded sound: a file played, sliced or placed**
+(asked by the person on 2026-11-18: "¿también tiene las herramientas para hacer
+samplings?", then "añádelo"). Read on 2026-11-18, LMMS 1.2.2's sources:
+AudioFileProcessor plays one file at each note's pitch, from `sframe` to `eframe` as
+fractions of it, reversed or looped (plugins/audio_file_processor); a sample track
+(type 2) holds clips, `<sampletco pos len src>` in ticks (src/tracks/SampleTrack.cpp);
+and a `src` under LMMS's samples folder is found by LMMS itself
+(`SampleBuffer::tryToMakeAbsolute`). A track's `sample` (`tools/lmms/samples.py`) is a
+path or an object:
+
+- played as an instrument: the file, or the part between `start` and `end` in seconds,
+  `reverse`, `loop`, and `root`, the note that plays it as recorded. `sound` still
+  shapes it (envelope, filter, tremolo).
+- `slices`: a number of equal parts or a list of seconds. The track's notes are then
+  `s1`, `s2`, ..., one LMMS track per slice as the drum kit is one per drum, so a break
+  is reordered by writing notes.
+- `clips`: beats where the whole file is placed on the timeline. LMMS does not stretch
+  it, so the result says how many beats it lasts at the tempo and at which tempo it
+  would fill a whole number.
+
+The file may be in the project, anywhere on the machine, or in LMMS's library (1,004
+files here, most of them DrumSynth), which `sounds` lists by folder and searches by
+word. Its length is read from a WAV's header and through ffmpeg otherwise. Tried
+against LMMS 1.2.2 on 2026-11-18: a wav, an ogg and an mp3 played; a break cut in
+eight and reordered; clips at two beats; and a reversed part, which first came out as
+the file's silent tail, because LMMS turns the file around before it takes the part,
+so a reversed part is now counted from the other end. Shown in the real app on the QA
+rig: a break chopped and reordered under a library bass, the break itself placed as a
+clip, and the render reported as clipping. Whose recording a file is, the tool does not
+know: sampling someone else's song copies that audio, unlike studying its style, and
+that choice is the person's. `lmms`'s definition is now about 930 tokens a step. Lab:
+`tests/tools/test_lmms_tool.py`. Owed: slices cut
+where the hits are (the study finds beats; nothing connects the two yet).
 
 **The connection form lists only the Claude API** (decided by the user on 2026-10-31: "de
 momento en este listado solo deja la API de Claude"). The other services stay defined in

@@ -31,9 +31,9 @@ from cogito.provider.base import PayloadShape, Provenance, Reproducibility, Rete
 from cogito.tools.base import ToolContext, ToolResult, parameters
 from cogito.tools.project_files import resolve_path, unwritable_message
 
-from . import mmp, program, score
+from . import mmp, program, review, samples, score, sounds
 
-_ACTIONS = ("write", "read", "render", "open")
+_ACTIONS = ("write", "read", "check", "sounds", "render", "open")
 _SUFFIXES = (".mmp", ".mmpz")
 #: LMMS's own tempo range (include/Song.h: MinTempo 10, MaxTempo 999).
 _TEMPO = (10, 999)
@@ -48,6 +48,12 @@ _DESCRIPTION = (
     "changed) stays. `remove` takes tracks out.\n"
     "- read: the tempo and every track's notes. Do it before changing a project the person "
     "may have edited.\n"
+    "- check: reads your notes back as music (key, a chord a bar, drum pattern, each "
+    "track's range) and lists what looks wrong: a track off the chords because a length "
+    "was miscounted, bass or clashing notes, an instrument out of its range, empty bars. "
+    "Run it after writing and fix what it finds before asking the person to listen. With "
+    "`reference` (an audio file) it also says where your piece is like that recording "
+    "and where it is too close: the piece must be its own.\n"
     "- render: an audio file beside the project. - open: opens it in LMMS; after a later "
     "write the person must reopen it.\n"
     "Notes are tokens in order, each starting where the last ended: `PITCH:BEATS` (a beat "
@@ -57,7 +63,12 @@ _DESCRIPTION = (
     "crash, tom), e.g. `[kick hat]:0.5 hat:0.5 [snare hat]:0.5 hat:0.5`; synths: "
     + ", ".join(mmp.SYNTHS)
     + "; General MIDI names (piano, organ, guitar, bass_guitar, strings, choir, trumpet, "
-    "flute, ...) or `gm:N`."
+    "flute, ...) or `gm:N`; or any preset of LMMS's synths by name.\n"
+    "- sounds: lists those presets and LMMS's samples (with `query`, the ones matching, "
+    "or one preset's attributes) and says how a track's `sound` designs a synth "
+    "(oscillators, envelope, filter, LFO) and how its `sample` plays an audio file, cuts "
+    "it into slices or places it as clips. Call it before choosing sounds for a style; it "
+    "needs no `path`."
 )
 
 
@@ -68,11 +79,20 @@ class LmmsTool:
         runner: program.Runner = program.run,
         find: Any = program.find,
         soundfont: Any = mmp.soundfont,
+        measure: Any = None,
+        levels: Any = None,
+        seconds: Any = samples.seconds_of,
     ) -> None:
         #: Injected so a test never starts LMMS or depends on what is installed.
         self._runner = runner
         self._find = find
         self._soundfont = soundfont
+        #: Studies a recording for `check`'s `reference`; `study_song`'s own by default.
+        self._measure = measure
+        #: Says how loud a rendered file is, since the model cannot hear that it clips.
+        self._levels = levels or _levels
+        #: How long an audio file lasts, for a track's `sample`.
+        self._seconds = seconds
         #: What each project looked like when this session last read or wrote it.
         self._seen: dict[Path, tuple[int, int]] = {}
         self.spec = ToolSpec(
@@ -106,6 +126,14 @@ class LmmsTool:
                                 "name": {"type": "string"},
                                 "instrument": {"type": "string"},
                                 "notes": {"type": "string"},
+                                "sample": {
+                                    "description": "An audio file to play, slice or place "
+                                    "as clips; see action sounds.",
+                                },
+                                "sound": {
+                                    "type": "object",
+                                    "description": "A designed synth; see action sounds.",
+                                },
                                 "volume": {"type": "integer", "description": "0-200."},
                                 "pan": {"type": "integer", "description": "-100 to 100."},
                             },
@@ -123,12 +151,20 @@ class LmmsTool:
                         "enum": list(program.FORMATS),
                         "description": "render: the audio file's format. ogg by default.",
                     },
+                    "query": {
+                        "type": "string",
+                        "description": "sounds: words of a preset's name, or its name.",
+                    },
+                    "reference": {
+                        "type": "string",
+                        "description": "check: an audio file to compare the piece with.",
+                    },
                     "open": {
                         "type": "boolean",
                         "description": "write or render: also open the project in LMMS.",
                     },
                 },
-                required=("action", "path"),
+                required=("action",),
             ),
             aliases={
                 "path": ("file", "file_path", "filename", "project"),
@@ -136,6 +172,7 @@ class LmmsTool:
                 "time_signature": ("signature", "meter"),
                 "audio_format": ("format",),
                 "remove": ("delete", "remove_tracks"),
+                "reference": ("reference_song", "compare_with"),
             },
             budget_tokens=2500,
             mutates=True,
@@ -150,6 +187,18 @@ class LmmsTool:
             return ToolResult.error(
                 f"`action` must be one of: {', '.join(_ACTIONS)}.", "invalid_arguments"
             )
+        if action == "sounds":
+            query = arguments.get("query")
+            try:
+                asked = query if isinstance(query, str) else ""
+                text = sounds.catalog(asked, sounds.preset_dirs(self._find()))
+                library = samples.listing(asked, samples.library_dirs(self._find()))
+                if asked and library and text.startswith("No preset matches"):
+                    text = ""
+                extra = [samples.HELP, *library] if not asked else library
+                return ToolResult(content="\n\n".join(part for part in (text, *extra) if part))
+            except sounds.SoundError as exc:
+                return ToolResult.error(str(exc), "bad_preset")
         raw = arguments.get("path")
         if not isinstance(raw, str) or not raw.strip():
             return ToolResult.error(
@@ -166,6 +215,8 @@ class LmmsTool:
             return ToolResult.error("Stopped before anything was done.", "cancelled")
         if action == "read":
             return self._read(path)
+        if action == "check":
+            return self._check(path, arguments, context)
         if action == "write":
             return self._write(path, arguments, context)
         if action == "render":
@@ -184,6 +235,41 @@ class LmmsTool:
         self._note_seen(path)
         return ToolResult(content=_described(path, mmp.describe(root)))
 
+    def _check(self, path: Path, arguments: Mapping[str, Any], context: ToolContext) -> ToolResult:
+        if not path.is_file():
+            return ToolResult.error(
+                f"{path} does not exist. Create it with action write.", "not_found"
+            )
+        try:
+            view = mmp.describe(mmp.load(path))
+            found = review.review(view)
+        except (mmp.ProjectError, score.ScoreError) as exc:
+            return ToolResult.error(str(exc), "bad_project")
+        self._note_seen(path)
+        lines = [
+            f"{path}: {view.tempo} bpm, {view.signature}, {view.bars} bars, "
+            f"{_clock(view.seconds)}. Read from the notes, not heard.",
+            *review.text(found),
+        ]
+        raw = arguments.get("reference")
+        if isinstance(raw, str) and raw.strip():
+            reference = resolve_path(context.project_root, raw)
+            if not reference.is_file():
+                return ToolResult.error(
+                    f"The reference {reference} does not exist. Ask the person where the "
+                    "song is, or call check without `reference`.",
+                    "not_found",
+                )
+            measure = self._measure
+            if measure is None:
+                from cogito.tools.songstudy.tool import measure
+            measured = measure(reference, cancel=context.cancel)
+            if isinstance(measured, ToolResult):
+                return measured
+            tempo = int(float(view.tempo or 0))
+            lines += ["", *review.against(found, tempo, measured[0], reference)]
+        return ToolResult(content="\n".join(lines))
+
     def _write(self, path: Path, arguments: Mapping[str, Any], context: ToolContext) -> ToolResult:
         if (refused := _outside(path, context.project_root)) is not None:
             return refused
@@ -194,10 +280,10 @@ class LmmsTool:
         except ValueError as exc:
             return ToolResult.error(str(exc), "invalid_arguments")
         existed = path.is_file()
-        if not existed and not any(change.notes for change in changes):
+        if not existed and not any(change.notes or _places(change) for change in changes):
             return ToolResult.error(
                 f"{path} does not exist yet, so the call must give at least one track with "
-                "`notes`.",
+                "`notes` (or a `sample` with `clips`).",
                 "invalid_arguments",
             )
         if existed and not changes and not remove and tempo is None and numerator is None:
@@ -206,7 +292,7 @@ class LmmsTool:
                 "invalid_arguments",
             )
         if existed and self._seen.get(path) != _stamp(path):
-            touches = [c.name for c in changes if c.notes is not None] + remove
+            touches = [c.name for c in changes if c.notes is not None or _places(c)] + remove
             if touches:
                 return ToolResult.error(
                     f"{path} exists and was not read in this conversation, or it changed "
@@ -217,9 +303,18 @@ class LmmsTool:
         try:
             root = mmp.load(path) if existed else mmp.new_project()
             mmp.set_head(root, tempo=tempo, numerator=numerator, denominator=denominator)
-            done = mmp.apply(root, changes, remove=remove, font=self._soundfont())
+            done = mmp.apply(
+                root, changes, remove=remove, font=self._soundfont(),
+                presets=sounds.preset_dirs(self._find()),
+                sampling=samples.Sampling(
+                    Path(context.project_root), samples.library_dirs(self._find()),
+                    self._seconds,
+                ),
+            )
             data = mmp.dump(root, path)
-        except (mmp.ProjectError, score.ScoreError) as exc:
+        except (
+            mmp.ProjectError, score.ScoreError, sounds.SoundError, samples.SampleError
+        ) as exc:
             return ToolResult.error(str(exc), "invalid_arguments")
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -243,6 +338,7 @@ class LmmsTool:
         ):
             if names:
                 lines.append(f"{label}: {', '.join(names)}.")
+        lines += done.samples
         if existed:
             lines.append(f"The file as it was is {path.name}.bak.")
         if done.fallbacks:
@@ -304,10 +400,12 @@ class LmmsTool:
             seconds = mmp.describe(mmp.load(path)).seconds
         except mmp.ProjectError:
             seconds = 0.0
+        loud = self._levels(output, context.cancel)
         result = ToolResult(
             content=(
-                f"Rendered {output} ({after[1]:,} bytes, about {_clock(seconds)}). You "
-                "cannot hear it: ask the person to play it and say what to change."
+                f"Rendered {output} ({after[1]:,} bytes, about {_clock(seconds)})."
+                + (f" {loud}" if loud else "")
+                + " You cannot hear it: ask the person to play it and say what to change."
             ),
             metadata={"output": str(output), "bytes": after[1]},
             files_touched=(str(output),),
@@ -353,7 +451,7 @@ class LmmsTool:
 # -- arguments ------------------------------------------------------------------------
 
 _TRACK_ALIASES = {
-    "instrument": ("preset", "sound", "voice", "program"),
+    "instrument": ("preset", "voice", "program"),
     "notes": ("score", "pattern", "sequence", "melody"),
     "name": ("track", "title"),
     "volume": ("vol",),
@@ -391,6 +489,19 @@ def _track_changes(raw: Any) -> list[mmp.TrackChange]:
             notes = " ".join(str(part) for part in notes)
         if notes is not None and not isinstance(notes, str):
             raise ValueError(f"Track `{name}`: `notes` is text, e.g. `C4:1 E4:1 G4:2`.")
+        sound = fields.get("sound")
+        if isinstance(sound, str) and sound.strip().startswith("{"):
+            try:
+                sound = json.loads(sound)
+            except ValueError:
+                raise ValueError(
+                    f"Track `{name}`: `sound` is an object; see action sounds."
+                ) from None
+        if isinstance(sound, str) and "instrument" not in fields:
+            # A name where an object goes: the model meant the instrument.
+            fields["instrument"], sound = sound, None
+        if sound is not None and not isinstance(sound, Mapping):
+            raise ValueError(f"Track `{name}`: `sound` is an object; see action sounds.")
         instrument = fields.get("instrument") or ""
         if not isinstance(instrument, str):
             raise ValueError(f"Track `{name}`: `instrument` is a name. Known: {mmp.instruments()}.")
@@ -398,8 +509,15 @@ def _track_changes(raw: Any) -> list[mmp.TrackChange]:
             name=name.strip(), instrument=instrument.strip().lower(), notes=notes,
             volume=_ranged(fields.get("volume"), 0, 200, f"Track `{name}`: `volume`"),
             pan=_ranged(fields.get("pan"), -100, 100, f"Track `{name}`: `pan`"),
+            sound=sound,
+            sample=fields.get("sample"),
         ))
     return changes
+
+
+def _places(change: mmp.TrackChange) -> bool:
+    """Whether a track's `sample` places clips, which is content without notes."""
+    return isinstance(change.sample, Mapping) and "clips" in change.sample
 
 
 def _names(raw: Any) -> list[str]:
@@ -484,6 +602,43 @@ def _outside(path: Path, project_root: Path) -> ToolResult | None:
             "outside_project",
         )
     return None
+
+
+def _levels(path: Path, cancel: Any = None) -> str:
+    """How loud a rendered file is, in a sentence, or "" where it cannot be measured
+    (no ffmpeg, no numpy). A mix that clips or is silent is a mistake the model cannot
+    hear and the notes do not show."""
+    try:
+        import numpy as np
+
+        from cogito.tools.songstudy import audio
+    except ImportError:
+        return ""
+    ffmpeg = audio.find()
+    if not ffmpeg:
+        return ""
+    decoded = audio.decode(ffmpeg, path, 22_050, start=0.0, seconds=audio.MAX_SECONDS,
+                           cancel=cancel)
+    if decoded.status != 0 or not decoded.samples:
+        return ""
+    samples = np.abs(np.frombuffer(decoded.samples, dtype="<i2").astype(np.float32)) / 32768.0
+    peak = float(samples.max())
+    clipped = float((samples >= 0.97).mean())
+    if peak < 0.01:
+        return "It is silent: check that the tracks have notes and instruments that sound."
+    if clipped >= 0.001:
+        return (
+            f"It is too loud: {clipped:.1%} of it is at full scale and distorts. Lower the "
+            "loudest tracks' `volume` and render again."
+        )
+    if peak >= 0.99:
+        return (
+            "Its level touches full scale without distorting much: lower the loudest "
+            "track's `volume` a little to leave room."
+        )
+    if peak < 0.2:
+        return f"It is quiet (its peak is {peak:.0%} of full scale): raise the tracks' `volume`."
+    return f"Its level is fine (peak {peak:.0%} of full scale, nothing clips)."
 
 
 def _joined(first: ToolResult, second: ToolResult) -> ToolResult:

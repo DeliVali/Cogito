@@ -795,6 +795,13 @@ def _lmms_wanted() -> bool:
     return bool(program.find())
 
 
+def _study_song_wanted() -> bool:
+    """Whether ffmpeg, which reads a recording for `study_song`, is installed."""
+    from cogito.tools.songstudy import audio
+
+    return bool(audio.find())
+
+
 def _computer_wanted() -> bool:
     """Whether this machine has a desktop the `computer` tool can reach: Linux with a
     session bus, where the portals answer (`tools.desktop.portal.available`)."""
@@ -3094,6 +3101,14 @@ def _build_engine(
         from cogito.tools.lmms.tool import LmmsTool
 
         install(LmmsTool())
+        # APP-ONLY: `study_song`, how a recording the person gives is built (tempo, key,
+        # chords, sections, groove), measured from its samples (`tools/songstudy`), so the
+        # model can write a new piece in that style. It reads audio through the person's
+        # ffmpeg, and is registered with `lmms` only: it serves the writing of music.
+        if _study_song_wanted():
+            from cogito.tools.songstudy.tool import StudySongTool
+
+            install(StudySongTool())
     # APP-ONLY: `browser`, web pages the model opens and uses by their elements
     # (`tools/browser`), in the app's own tabs: the desktop's main process runs each
     # operation and answers through the session's bridge (`server/browsers.py`). Asked about
@@ -3189,7 +3204,7 @@ def _build_engine(
         install(TodoTool(TodoList(), record=store.record))
     skipped -= {
         "ask", "recall", "ask_document", "web_search", "web_fetch", "skill", "computer",
-        "browser", "run_in_terminal", "read_terminal", "delegate", "todo", "lmms",
+        "browser", "run_in_terminal", "read_terminal", "delegate", "todo", "lmms", "study_song",
     }
     if skipped:
         # Otherwise a misspelled name would read as a successful A/B against a tool that

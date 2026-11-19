@@ -78,6 +78,17 @@ local model does good work. Every harness change is kept or reverted by a measur
   see in the piano roll and edit. It reads back what you changed, keeps what it was not
   asked to touch, and renders the song to an audio file. Install LMMS yourself; Cogito
   does not ship it.
+- A track can use any of LMMS's presets across its twelve synths, or a sound the model
+  designs: oscillators, envelope, filter and LFO. A render says when the mix clips.
+- A track can play an audio file as an instrument, cut it into slices to reorder, or
+  place it as clips on the timeline, from your files or LMMS's sample library.
+- `lmms` also checks what it wrote: the key and chords its notes add up to, and what
+  looks wrong (a miscounted bar, a bass note outside the chord, clashing notes, an
+  instrument out of its range). Given a reference recording, it says when the piece is
+  too close to it.
+- `study_song` measures a recording you give it (tempo, key, chords, sections, drum
+  pattern) so the model can write a new piece in that style. It returns no melody, and
+  its values are estimates. It needs ffmpeg.
 
 ### Long work (app only)
 

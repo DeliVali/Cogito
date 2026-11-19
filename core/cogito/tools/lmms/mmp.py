@@ -15,14 +15,16 @@ the effects and whatever the person set in LMMS stay as they were.
 
 from __future__ import annotations
 
+import re
 import struct
 import zlib
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 from xml.etree import ElementTree as ET
 
-from . import score
+from . import samples, score, sounds
 
 #: LMMS track types (include/Track.h).
 INSTRUMENT_TRACK = "0"
@@ -80,8 +82,11 @@ SYNTHS = {
     "square": Synth((3, 3, 0), (0, 0, 0), (30, 0, 0)),
     "pluck": Synth((2, 3, 0), (0, 0, 0), (35, 15, 0), decay=0.25, sustain=0.0, release=0.2),
     "pad": Synth((2, 2, 0), (0, 0, -12), (25, 25, 20), attack=0.5, sustain=0.8, release=0.6),
-    "bass": Synth((2, 3, 0), (-12, -12, -24), (35, 15, 35), decay=0.4, sustain=0.6),
-    "sub_bass": Synth((0, 0, 0), (-12, -24, 0), (60, 30, 0)),
+    # A bass sounds at the pitch written, with an octave under it: C2 is the C2 a bass
+    # plays. (Until 2026-11-18 both played one and two octaves under, so C2 came out at
+    # 16 Hz, below hearing.)
+    "bass": Synth((2, 3, 0), (0, 0, -12), (35, 15, 35), decay=0.4, sustain=0.6),
+    "sub_bass": Synth((0, 0, 0), (0, -12, 0), (60, 30, 0)),
     "lead": Synth((2, 3, 2), (0, 0, 12), (30, 20, 10), sustain=0.7, release=0.15),
     "bell": Synth((0, 0, 0), (0, 12, 24), (45, 20, 12), decay=0.9, sustain=0.0, release=0.6),
 }
@@ -108,6 +113,11 @@ DRUMS = {
     "clave": "drums/clav01.ogg",
 }
 DRUM_KIT = "drums"
+#: What a track of slices reads as: a kit whose pieces are parts of one file.
+SLICES = "slices"
+_SLICE = re.compile(r"s[1-9]\d?")
+#: LMMS's track type for audio clips on the timeline (include/Track.h).
+SAMPLE_TRACK = "2"
 
 
 class ProjectError(ValueError):
@@ -138,6 +148,10 @@ class TrackChange:
     notes: str | None = None
     volume: int | None = None
     pan: int | None = None
+    #: A designed or shaped sound (`sounds.shape`), or None.
+    sound: Mapping[str, Any] | None = None
+    #: Recorded sound to play, slice or place (`samples.plan`), or None.
+    sample: Any = None
 
 
 @dataclass(slots=True)
@@ -149,6 +163,8 @@ class Applied:
     removed: list[str] = field(default_factory=list)
     #: General MIDI names played by a synth because no SoundFont is installed.
     fallbacks: list[str] = field(default_factory=list)
+    #: One line per sample used: what the file is and how it was used.
+    samples: list[str] = field(default_factory=list)
     notes: int = 0
     #: The last tick any note of the whole project ends on.
     ticks: int = 0
@@ -259,6 +275,8 @@ def apply(
     *,
     remove: Sequence[str] = (),
     font: str = "",
+    presets: Sequence[Path] = (),
+    sampling: samples.Sampling | None = None,
 ) -> Applied:
     """Make ``tracks`` so in ``root``, and take ``remove`` out. Everything a call does
     not name is left as it is."""
@@ -275,10 +293,19 @@ def apply(
         kit = change.instrument == DRUM_KIT or (
             not change.instrument and _is_kit(container, change.name)
         )
-        if kit:
+        if change.sample is not None:
+            _apply_sample(container, change, existing, font, done, presets,
+                          sampling or samples.Sampling(Path.cwd()), _head(root)[0])
+        elif kit:
+            if change.sound is not None:
+                raise ProjectError(
+                    f"`{change.name}` is a drum kit of samples, which takes no `sound`. "
+                    "For a synthesized drum, make a pitched track with a preset like "
+                    "`Kicker/TrapKick` or `Drums_Snare` (action sounds lists them)."
+                )
             _apply_kit(container, change, done)
         else:
-            _apply_pitched(container, change, existing, font, done)
+            _apply_pitched(container, change, existing, font, done, presets)
     for name in remove:
         gone = _tracks_named(container, name) + _kit_tracks(container, name)
         if not gone:
@@ -299,6 +326,9 @@ def _apply_pitched(
     existing: list[ET.Element],
     font: str,
     done: Applied,
+    presets: Sequence[Path] = (),
+    player: ET.Element | None = None,
+    base: int | None = None,
 ) -> None:
     # A track that was a kit and is now given a pitched instrument: the kit goes.
     for track in _kit_tracks(container, change.name):
@@ -310,15 +340,30 @@ def _apply_pitched(
                 f"`{change.name}` is not an instrument track in this project (it holds "
                 "samples, automation or a beat). Give the new track another name."
             )
-        if change.instrument:
-            _set_instrument(track, change.instrument, font, done)
+        if change.instrument and player is None:
+            _set_instrument(track, change.instrument, font, done, presets)
         done.changed.append(change.name)
     else:
         track = ET.SubElement(container, "track", muted="0", type=INSTRUMENT_TRACK,
                               name=change.name, solo="0")
         track.append(_instrument_track())
-        _set_instrument(track, change.instrument or "piano", font, done)
+        # A new track that designs its own oscillators needs no instrument named.
+        designed = change.sound is not None and "oscillators" in change.sound
+        if player is None:
+            _set_instrument(
+                track, change.instrument or ("saw" if designed else "piano"), font, done,
+                presets,
+            )
         done.created.append(change.name)
+    if player is not None:
+        _replace_instrument(track, player)
+        holder = track.find("instrumenttrack")
+        assert holder is not None
+        holder.set("basenote", str(base if base is not None else score.BASE_KEY))
+    if change.sound is not None:
+        holder = track.find("instrumenttrack")
+        assert holder is not None
+        sounds.shape(holder, change.sound)
     _set_mix(track, change)
     if change.notes is not None:
         notes = score.parse(change.notes)
@@ -326,18 +371,92 @@ def _apply_pitched(
         done.notes += len(notes)
 
 
-def _apply_kit(container: ET.Element, change: TrackChange, done: Applied) -> None:
+def _apply_sample(
+    container: ET.Element, change: TrackChange, existing: list[ET.Element], font: str,
+    done: Applied, presets: Sequence[Path], sampling: samples.Sampling, tempo: int,
+) -> None:
+    """A track of recorded sound: played as an instrument, cut into slices, or placed as
+    clips."""
+    found = samples.plan(change.sample, sampling, score.key_of)
+    done.samples.append(samples.describe(found, tempo))
+    if found.kind == "clips":
+        if change.notes or change.sound is not None or change.instrument:
+            raise ProjectError(
+                f"`{change.name}` places a file as clips, so it takes no `notes`, "
+                "`instrument` or `sound`. To play the file with notes, leave `clips` out."
+            )
+        had = _tracks_named(container, change.name) + _kit_tracks(container, change.name)
+        for track in had:
+            container.remove(track)
+        track = ET.SubElement(container, "track", muted="0", type=SAMPLE_TRACK,
+                              name=change.name, solo="0")
+        ET.SubElement(
+            track, "sampletrack",
+            vol=str(change.volume if change.volume is not None else 100),
+            pan=str(change.pan if change.pan is not None else 0),
+        ).append(ET.Element("fxchain", numofeffects="0", enabled="0"))
+        # A clip lasts as long as the file does at this tempo; where that cannot be
+        # read, a bar, which the person stretches in LMMS.
+        ticks = (
+            max(1, round(found.seconds * tempo / 60 * score.TICKS_PER_BEAT))
+            if found.seconds else 4 * score.TICKS_PER_BEAT
+        )
+        for beat in found.clips:
+            ET.SubElement(track, "sampletco", pos=str(round(beat * score.TICKS_PER_BEAT)),
+                          len=str(ticks), muted="0", src=found.src)
+        (done.changed if had else done.created).append(change.name)
+        return
+    if change.instrument:
+        raise ProjectError(
+            f"`{change.name}` has a `sample`, which is its instrument: leave `instrument` out."
+        )
+    if found.kind == "slices":
+        if change.sound is not None:
+            raise ProjectError(f"`{change.name}` is cut into slices, which take no `sound`.")
+        pieces = {
+            f"s{index + 1}": samples.player(found.src, start=a, end=b, reverse=found.reverse)
+            for index, (a, b) in enumerate(found.cuts)
+        }
+        _apply_kit(container, change, done, pieces)
+        return
+    if change.sound is not None and ("oscillators" in change.sound or "mix" in change.sound):
+        raise ProjectError(
+            f"`{change.name}` plays a sample, so its `sound` may shape it (envelope, filter, "
+            "tremolo) and not give oscillators."
+        )
+    _apply_pitched(
+        container, change, existing, font, done, presets,
+        player=samples.player(found.src, start=found.start, end=found.end,
+                              reverse=found.reverse, loop=found.loop),
+        base=found.base,
+    )
+
+
+def _apply_kit(
+    container: ET.Element, change: TrackChange, done: Applied,
+    pieces: Mapping[str, ET.Element] | None = None,
+) -> None:
+    """A kit: one LMMS track per drum, or per slice of a file when ``pieces`` gives them."""
     for track in _tracks_named(container, change.name):
         container.remove(track)
     had = {_drum_of(track, change.name): track for track in _kit_tracks(container, change.name)}
+    if pieces is not None:
+        # Cut anew: the slices there were are parts of another cut.
+        for track in had.values():
+            container.remove(track)
+        had = {}
     if change.notes is None:
         if not had:
-            raise ProjectError(f"`{change.name}` is a new drum track, so it needs `notes`.")
+            raise ProjectError(
+                f"`{change.name}` is a new track of {'slices' if pieces else 'drums'}, so "
+                "it needs `notes`."
+            )
         for track in had.values():
             _set_mix(track, change)
         done.changed.append(change.name)
         return
-    notes = score.parse(change.notes, drums=frozenset(DRUMS))
+    allowed = frozenset(pieces) if pieces is not None else frozenset(DRUMS) | frozenset(had)
+    notes = score.parse(change.notes, drums=allowed)
     by_drum: dict[str, list[score.Note]] = {}
     for note in notes:
         by_drum.setdefault(note.drum, []).append(note)
@@ -350,14 +469,18 @@ def _apply_kit(container: ET.Element, change: TrackChange, done: Applied) -> Non
             track = ET.SubElement(container, "track", muted="0", type=INSTRUMENT_TRACK,
                                   name=f"{change.name} · {drum}", solo="0")
             track.append(_instrument_track())
-            _replace_instrument(track, _sample_player(DRUMS[drum]))
+            _replace_instrument(
+                track, pieces[drum] if pieces is not None else _sample_player(DRUMS[drum])
+            )
         _set_mix(track, change)
         _set_notes(track, drum, drum_notes)
     done.notes += len(notes)
     (done.changed if had else done.created).append(change.name)
 
 
-def _set_instrument(track: ET.Element, name: str, font: str, done: Applied) -> None:
+def _set_instrument(
+    track: ET.Element, name: str, font: str, done: Applied, presets: Sequence[Path] = ()
+) -> None:
     wanted = name.strip().lower().replace(" ", "_").replace("-", "_")
     if wanted in SYNTHS:
         _replace_instrument(track, _synth(SYNTHS[wanted]), SYNTHS[wanted])
@@ -366,7 +489,20 @@ def _set_instrument(track: ET.Element, name: str, font: str, done: Applied) -> N
     if program is None and wanted.startswith("gm:") and wanted[3:].isdigit():
         program = int(wanted[3:])
     if program is None or not 0 <= program <= 127:
-        raise ProjectError(f"`{name}` is not an instrument. Known: {instruments()}.")
+        preset = sounds.find_preset(name, presets)
+        if preset is None:
+            close = sounds.near(name, presets)
+            raise ProjectError(
+                f"`{name}` is not an instrument or a preset."
+                + (f" Presets close to it: {', '.join(close)}." if close else "")
+                + f" Known: {instruments()}; or a preset (action sounds lists them)."
+            )
+        # A preset is a whole instrument track: the synth, its envelopes, its filter.
+        old = track.find("instrumenttrack")
+        if old is not None:
+            track.remove(old)
+        track.insert(0, sounds.load_preset(preset))
+        return
     if font:
         _replace_instrument(track, _soundfont_player(font, program))
         return
@@ -464,11 +600,21 @@ def describe(root: ET.Element) -> ProjectView:
     kits: dict[str, list[tuple[str, ET.Element]]] = {}
     for track in container.findall("track"):
         name = track.get("name", "")
+        if track.get("type") == SAMPLE_TRACK:
+            clips = track.findall("sampletco")
+            beats = ", ".join(
+                f"{max(0, _int(clip.get('pos'))) / score.TICKS_PER_BEAT:g}" for clip in clips
+            )
+            files = ", ".join(dict.fromkeys(Path(clip.get("src", "")).name for clip in clips))
+            other.append(f"{name} (audio clips of {files or 'nothing'} at beats {beats})")
+            continue
         if track.get("type") != INSTRUMENT_TRACK:
             other.append(name)
             continue
         kit, _, drum = name.partition(" · ")
-        if drum in DRUMS and _source(track) == DRUMS[drum]:
+        if (drum in DRUMS and _source(track) == DRUMS[drum]) or (
+            _SLICE.fullmatch(drum) and _source(track)
+        ):
             kits.setdefault(kit, []).append((drum, track))
             continue
         notes = _notes(track)
@@ -487,7 +633,7 @@ def describe(root: ET.Element) -> ProjectView:
         ]
         holder = members[0][1].find("instrumenttrack")
         tracks.append(TrackView(
-            kit, DRUM_KIT,
+            kit, SLICES if all(_SLICE.fullmatch(drum) for drum, _track in members) else DRUM_KIT,
             holder.get("vol", "100") if holder is not None else "100",
             holder.get("pan", "0") if holder is not None else "0",
             all(track.get("muted") == "1" for _drum, track in members),
@@ -512,6 +658,8 @@ def length(root: ET.Element) -> int:
             start = max(0, _int(pattern.get("pos")))
             for note in pattern.findall("note"):
                 end = max(end, start + _int(note.get("pos")) + max(0, _int(note.get("len"))))
+        for clip in track.findall("sampletco"):
+            end = max(end, max(0, _int(clip.get("pos"))) + max(0, _int(clip.get("len"))))
     return end
 
 
@@ -577,8 +725,13 @@ def _kit_tracks(container: ET.Element, name: str) -> list[ET.Element]:
     return [
         track for track in container.findall("track")
         if track.get("name", "").casefold().startswith(prefix)
-        and track.get("name", "")[len(prefix):] in DRUMS
+        and _is_piece(track.get("name", "")[len(prefix):])
     ]
+
+
+def _is_piece(name: str) -> bool:
+    """Whether a kit member's name is a drum or a slice."""
+    return name in DRUMS or bool(_SLICE.fullmatch(name))
 
 
 def _is_kit(container: ET.Element, name: str) -> bool:
@@ -593,7 +746,7 @@ def _names(container: ET.Element) -> list[str]:
     names: list[str] = []
     for track in container.findall("track"):
         kit, _, drum = track.get("name", "").partition(" · ")
-        name = kit if drum in DRUMS else track.get("name", "")
+        name = kit if _is_piece(drum) else track.get("name", "")
         if name not in names:
             names.append(name)
     return names

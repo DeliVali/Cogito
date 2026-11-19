@@ -23,6 +23,8 @@ dependencies = [
     "psutil>=7.0; sys_platform == 'win32'",
     "jeepney>=0.9 ; sys_platform == 'linux'",
     "pillow>=11",
+    # The signal maths of `study_song` (tools/songstudy). Nothing else imports it.
+    "numpy>=1.26",
 ]
 
 [project.optional-dependencies]

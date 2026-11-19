@@ -47,6 +47,8 @@ const VERBS = {
   todo: { gerund: 'Actualizando la lista de tareas', past: 'Actualizó la lista de tareas', failed: 'No pudo actualizar la lista de tareas' },
   // Music written as an LMMS project (`lmms`); its file is the row's target.
   lmms: { gerund: 'LMMS:', past: 'LMMS:', failed: 'LMMS falló:' },
+  // A recording studied for its style (`study_song`); the audio file is the row's target.
+  study_song: { gerund: 'Estudiando la canción:', past: 'Estudió la canción:', failed: 'No pudo estudiar la canción:' },
   // Not a model tool: the core's build gate, which compiles what the turn changed before
   // it accepts the answer (`loop/engine.py`, `_BUILD_GATE_UI_NAME`).
   build: { gerund: 'Compilando', past: 'Compiló', failed: 'Compiló' },
