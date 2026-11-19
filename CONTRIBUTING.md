@@ -170,7 +170,7 @@ hook rejects new top-level files that are not listed.
 | `core/cogito/tools/desktop/` | `computer`: seeing the screen and using the mouse and keyboard, through the desktop's portals (Screenshot, RemoteDesktop with screen sharing) on Linux, and opening programs, files and addresses through their desktop entries (`launch.py`) |
 | `core/cogito/tools/terminal/` | `run_in_terminal` and `read_terminal`, and the terminal tabs the app shows beside «Hilo»: the person's own shell on a PTY (POSIX), its prompt marks, and a screen model the model reads |
 | `core/cogito/tools/browser/` | `browser`: web pages the model opens in the app's own tabs and uses by their elements' refs, and their HTML, scripts, network, console and storage, through the desktop's main process (`server/browsers.py` carries each named operation there and back) |
-| `core/cogito/tools/lmms/` | `lmms`: notes the model writes as text (`score.py`), made into an LMMS project the person opens and edits (`mmp.py`), LMMS's presets and synths the model designs (`sounds.py`), recorded sound played, sliced or placed as clips (`samples.py`), effects and automation (`mix.py`), the notes read back as music and checked (`review.py`), and LMMS run to render it or open it (`program.py`). LMMS is the person's install, never shipped |
+| `core/cogito/tools/lmms/` | `lmms`: notes the model writes as text (`score.py`), made into an LMMS project the person opens and edits (`mmp.py`), LMMS's presets and synths the model designs (`sounds.py`), recorded sound played, sliced or placed as clips (`samples.py`), effects and automation (`mix.py`), the LADSPA plugins installed and one as an effect (`ladspa.py`), the notes read back as music and checked (`review.py`), and LMMS run to render it or open it (`program.py`). LMMS is the person's install, never shipped |
 | `core/cogito/tools/songstudy/` | `study_song`: how a recording is built (tempo, beats, key, a chord a bar, sections, the drum pattern), measured from its samples with numpy (`analyze.py`), read through the person's ffmpeg (`audio.py`). It returns no melody |
 | `core/cogito/tools/mcp/` | MCP servers' tools: the stdio, HTTP and container (`docker run`) clients, OAuth sign-in for remote servers, the hub that registers every server tool and picks which few each step shows (`mcp_find` included), each server's tool list from its last start (`catalog.py`), the model's `mcp_add` (`install.py`), a project's `.mcp.json` and its approvals (`project.py`) and the import of other clients' servers (`imports.py`) |
 | `core/cogito/tools/builtin_skills/` | Agent Skills that ship with Cogito, one folder each with its `SKILL.md` (how to add an MCP server or a skill to Cogito; how to find and remove dead code) |
@@ -2302,6 +2302,38 @@ vocabulary of sounds, samples, effects and automation (about 930 tokens) is in
 `sounds`, asked for when needed. Lab: `tests/tools/test_lmms_tool.py`. Owed: effects
 by LADSPA, LV2 or VST, sends between mixer channels, and whether a model mixes well by
 numbers alone.
+
+**In the app, `lmms` uses the LADSPA plugins the machine has** (asked by the person on
+2026-11-18: "que fuera compatible con los plugins que se pudieran agregar", then "mejor
+plugins"). What this LMMS can load was looked at first: its LADSPA folder (118
+libraries); Carla, which would host LV2 and VST, does not load here
+(`libcarla_native-plugin.so` is not installed); and VeSTige has no `RemoteVstPlugin`
+in this package. So LADSPA is built, the one format LMMS loads by itself everywhere.
+Read on 2026-11-18, LMMS 1.2.2's sources: it searches `LADSPA_PATH`, its own folder and
+the system's `ladspa` folders (src/core/LadspaManager.cpp), so a plugin the person
+installs is found; an effect is saved as `<effect name="ladspaeffect">` with a `<key>`
+of the library and the plugin's label and one `<portPN data>` per control, P the run
+and N the port's number, a plugin with one audio input running once a channel
+(plugins/LadspaEffect). In `tools/lmms/ladspa.py`:
+
+- the plugins are read from their libraries through `ladspa_descriptor` (ladspa.h),
+  each library in a Python process of its own, so one that crashes on loading takes
+  nothing with it; once a session, when first asked for. Here: 213 effect plugins from
+  111 libraries in 0.3 s. A control's range and default follow LADSPA's hints and
+  LMMS's rules for a missing bound.
+- an effect of type `ladspa` names a plugin (`calf/Reverb`, or its label) and sets
+  controls by their own names; the rest keep the plugin's defaults. An unknown plugin
+  gets the close ones, an unknown control the plugin's controls with their ranges.
+- `sounds` with `ladspa` and words lists the matching plugins, and with a key one
+  plugin's controls.
+
+Checked against LMMS itself: for five plugins used in LMMS's demo projects (calf
+Reverb, caps AmpV and Plate2x2, tap_stereo_echo, sc4) the control count, their port
+numbers and the linking are what LMMS saved. Rendered with LMMS 1.2.2: calf Reverb,
+Plate2x2 and tap_stereo_echo leave a tail where the dry note leaves none. Shown in the
+real app on the QA rig: reverbs searched, one's controls read, a piano through a TAP
+echo and Calf Reverb rendered. Not done: LV2 and VST, which need Carla or a VST bridge
+this install lacks, and plugin instruments. Lab: `tests/tools/test_lmms_tool.py`.
 
 **The connection form lists only the Claude API** (decided by the user on 2026-10-31: "de
 momento en este listado solo deja la API de Claude"). The other services stay defined in

@@ -31,7 +31,7 @@ from cogito.provider.base import PayloadShape, Provenance, Reproducibility, Rete
 from cogito.tools.base import ToolContext, ToolResult, parameters
 from cogito.tools.project_files import resolve_path, unwritable_message
 
-from . import mix, mmp, program, review, samples, score, sounds
+from . import ladspa, mix, mmp, program, review, samples, score, sounds
 
 _ACTIONS = ("write", "read", "check", "sounds", "render", "open")
 _SUFFIXES = (".mmp", ".mmpz")
@@ -83,6 +83,7 @@ class LmmsTool:
         measure: Any = None,
         levels: Any = None,
         seconds: Any = samples.seconds_of,
+        plugins: Any = None,
     ) -> None:
         #: Injected so a test never starts LMMS or depends on what is installed.
         self._runner = runner
@@ -94,6 +95,9 @@ class LmmsTool:
         self._levels = levels or _levels
         #: How long an audio file lasts, for a track's `sample`.
         self._seconds = seconds
+        #: The LADSPA plugins installed, read once a session, when first asked for.
+        self._scan = plugins or (lambda: ladspa.scan(ladspa.folders(self._find())))
+        self._found: dict[str, ladspa.Plugin] | None = None
         #: What each project looked like when this session last read or wrote it.
         self._seen: dict[Path, tuple[int, int]] = {}
         self.spec = ToolSpec(
@@ -193,6 +197,11 @@ class LmmsTool:
             summary="write music as an LMMS project; render or open it",
         )
 
+    def _plugins(self) -> dict[str, ladspa.Plugin]:
+        if self._found is None:
+            self._found = dict(self._scan())
+        return self._found
+
     # -- the call -------------------------------------------------------------------
 
     def run(self, arguments: Mapping[str, Any], context: ToolContext) -> ToolResult:
@@ -205,11 +214,18 @@ class LmmsTool:
             query = arguments.get("query")
             try:
                 asked = query if isinstance(query, str) else ""
+                if "ladspa" in asked.lower().split():
+                    return ToolResult(content=ladspa.listing(asked, self._plugins()) or (
+                        "No LADSPA plugins were found on this machine."
+                    ))
                 text = sounds.catalog(asked, sounds.preset_dirs(self._find()))
                 library = samples.listing(asked, samples.library_dirs(self._find()))
                 if asked and library and text.startswith("No preset matches"):
                     text = ""
-                extra = [samples.HELP, mix.HELP, *library] if not asked else library
+                extra = (
+                    [samples.HELP, mix.HELP, *library, ladspa.listing("", self._plugins())]
+                    if not asked else library
+                )
                 return ToolResult(content="\n\n".join(part for part in (text, *extra) if part))
             except sounds.SoundError as exc:
                 return ToolResult.error(str(exc), "bad_preset")
@@ -337,7 +353,7 @@ class LmmsTool:
                     Path(context.project_root), samples.library_dirs(self._find()),
                     self._seconds,
                 ),
-                master_effects=master, automation=moves,
+                master_effects=master, automation=moves, plugins=self._plugins,
             )
             data = mmp.dump(root, path)
         except (

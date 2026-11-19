@@ -281,6 +281,7 @@ def apply(
     sampling: samples.Sampling | None = None,
     master_effects: Any = None,
     automation: Any = None,
+    plugins: Any = None,
 ) -> Applied:
     """Make ``tracks`` so in ``root``, and take ``remove`` out. Everything a call does
     not name is left as it is."""
@@ -311,7 +312,9 @@ def apply(
         else:
             _apply_pitched(container, change, existing, font, done, presets)
         if change.effects is not None:
-            made = mix.chain(change.effects, _head(root)[0], f"Track `{change.name}`")
+            made = mix.chain(
+                change.effects, _head(root)[0], f"Track `{change.name}`", plugins
+            )
             for track in _tracks_named(container, change.name) + _kit_tracks(
                 container, change.name
             ):
@@ -331,7 +334,9 @@ def apply(
             container.remove(track)
         done.removed.append(name)
     if master_effects is not None:
-        _put_chain(_master(root), mix.chain(master_effects, _head(root)[0], "master_effects"))
+        _put_chain(
+            _master(root), mix.chain(master_effects, _head(root)[0], "master_effects", plugins)
+        )
     if automation is not None:
         _automate(root, container, automation)
     done.ticks = length(root)

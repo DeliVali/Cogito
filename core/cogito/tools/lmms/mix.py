@@ -45,7 +45,8 @@ HELP = (
     "mid_freq Hz), high dB, each -18..18. filter: kind lowpass|highpass|bandpass|notch|"
     "moog|lowpass24, cutoff Hz, resonance. compressor: threshold 0-1, ratio, attack and "
     "release ms, gain. distortion: amount 0-1, drive, gain. bitcrush: rate Hz, bits. flanger: "
-    "rate, depth 0-1, feedback 0-1. widen: width 0-1. bassboost: freq 50-200 Hz, gain.\n"
+    "rate, depth 0-1, feedback 0-1. widen: width 0-1. bassboost: freq 50-200 Hz, gain. "
+    "ladspa: an installed plugin, {plugin, set: {control: value}}.\n"
     "`automation` moves a value over the song: a list of {target, points, curve}. "
     "target: `tempo`, `master volume`, or a track's name and `volume`, `pan`, `pitch`, "
     "`cutoff`, `resonance` or one of its synth's attributes (e.g. `Pad cutoff`). points: "
@@ -65,8 +66,9 @@ class MixError(ValueError):
 # -- effects --------------------------------------------------------------------------
 
 
-def chain(raw: Any, tempo: int, where: str) -> ET.Element:
-    """An `<fxchain>` for a list of effects."""
+def chain(raw: Any, tempo: int, where: str, plugins: Any = None) -> ET.Element:
+    """An `<fxchain>` for a list of effects. ``plugins`` returns the LADSPA plugins
+    installed, by `file/label`, and is called only when an effect asks for one."""
     if isinstance(raw, Mapping):
         raw = [raw]
     if not isinstance(raw, list) or len(raw) > MAX_EFFECTS:
@@ -78,10 +80,14 @@ def chain(raw: Any, tempo: int, where: str) -> ET.Element:
         if not isinstance(item, Mapping):
             raise MixError(f"{where}: effect {index} is an object like {{\"type\": \"reverb\"}}.")
         kind = str(item.get("type") or item.get("name") or "").lower().replace(" ", "")
+        if kind == "ladspa":
+            made.append(_plugin_effect(item, f"{where}, ladspa", plugins))
+            continue
         builder = _EFFECTS.get(kind)
         if builder is None:
             raise MixError(
-                f"{where}: `{kind or '?'}` is not an effect. Effects: {', '.join(_EFFECTS)}."
+                f"{where}: `{kind or '?'}` is not an effect. Effects: {', '.join(_EFFECTS)}, "
+                "or `ladspa` for an installed plugin."
             )
         here = f"{where}, {kind}"
         name, controls, default_mix, used = builder(item, tempo, here)
@@ -98,6 +104,34 @@ def chain(raw: Any, tempo: int, where: str) -> ET.Element:
         effect.append(controls)
         ET.SubElement(effect, "key")
     return made
+
+
+def _plugin_effect(item: Mapping[str, Any], where: str, plugins: Any) -> ET.Element:
+    """An installed LADSPA plugin as an effect."""
+    from . import ladspa
+
+    installed = plugins() if callable(plugins) else (plugins or {})
+    if not installed:
+        raise MixError(
+            f"{where}: no LADSPA plugins were found on this machine. Use the built-in "
+            f"effects: {', '.join(_EFFECTS)}."
+        )
+    unknown = [key for key in item if key not in ("type", "name", "plugin", "set", "mix")]
+    if unknown:
+        raise MixError(f"{where}: no field `{unknown[0]}`. It takes: plugin, set, mix.")
+    try:
+        plugin = ladspa.find(str(item.get("plugin") or ""), installed)
+        controls, key = ladspa.effect(plugin, item.get("set"), where)
+    except ladspa.PluginError as exc:
+        raise MixError(str(exc)) from None
+    effect = ET.Element(
+        "effect", name="ladspaeffect", on="1",
+        wet=_text(_number(item, "mix", 1.0, 0, 1, where)), gate="0", autoquit="1",
+        autoquit_numerator="4", autoquit_denominator="4", syncmode="0",
+    )
+    effect.append(controls)
+    effect.append(key)
+    return effect
 
 
 def describe(found: ET.Element | None) -> str:
